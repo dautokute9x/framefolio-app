@@ -1,0 +1,11 @@
+<svg width="1400" height="1750" viewBox="0 0 1400 1750" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1400" height="1750" fill="#e7d9c7"/>
+  <rect x="96" y="96" width="1208" height="1558" rx="40" fill="white" fill-opacity="0.45"/>
+  <rect x="160" y="160" width="1080" height="820" rx="28" fill="#b78f78" fill-opacity="0.12"/>
+  <circle cx="1070" cy="360" r="168" fill="#b78f78" fill-opacity="0.18"/>
+  <circle cx="350" cy="740" r="210" fill="#b78f78" fill-opacity="0.10"/>
+  <path d="M170 1160C340 1040 510 1048 700 1126C888 1204 1034 1210 1230 1100V1490H170V1160Z" fill="#b78f78" fill-opacity="0.14"/>
+  <text x="160" y="1090" fill="#b78f78" font-family="Georgia, serif" font-size="88">Alicia & Marcus</text>
+  <text x="160" y="1168" fill="#b78f78" fill-opacity="0.78" font-family="Arial, sans-serif" font-size="34">Ceremony, January 2026</text>
+  <text x="160" y="1560" fill="#b78f78" fill-opacity="0.60" font-family="Arial, sans-serif" font-size="24">Demo placeholder artwork for Framefolio seed data</text>
+</svg>

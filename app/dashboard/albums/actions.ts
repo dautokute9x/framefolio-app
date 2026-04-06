@@ -1,0 +1,169 @@
+ "use server";
+
+import bcrypt from "bcryptjs";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { requireAdminProfile } from "@/lib/auth";
+import { slugify } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/server";
+import { JOB_STATUSES } from "@/lib/constants";
+import type { JobStatus } from "@/lib/types";
+
+function parseStatus(value: string): JobStatus {
+  if (JOB_STATUSES.includes(value as JobStatus)) return value as JobStatus;
+  return "Draft";
+}
+
+async function ensureUniqueSlug(baseSlug: string, albumId?: string) {
+  const supabase = await createClient();
+  let slug = baseSlug || `album-${Date.now()}`;
+  let counter = 1;
+
+  while (true) {
+    let query = supabase.from("albums").select("id").eq("slug", slug);
+    if (albumId) query = query.neq("id", albumId);
+
+    const { data } = await query.maybeSingle();
+    if (!data) return slug;
+    slug = `${baseSlug}-${counter++}`;
+  }
+}
+
+async function upsertClientFromForm(ownerId: string, formData: FormData, existingClientId?: string | null) {
+  const supabase = await createClient();
+
+  const explicitClientId = String(formData.get("clientId") ?? "").trim() || existingClientId || "";
+  if (explicitClientId) return explicitClientId;
+
+  const name = String(formData.get("clientName") ?? "").trim();
+  const email = String(formData.get("clientEmail") ?? "").trim() || null;
+  const phone = String(formData.get("clientPhone") ?? "").trim() || null;
+  const notes = String(formData.get("clientNotes") ?? "").trim() || null;
+
+  if (!name) return null;
+
+  const { data } = await supabase
+    .from("clients")
+    .insert({
+      owner_id: ownerId,
+      name,
+      email,
+      phone,
+      notes,
+    })
+    .select("id")
+    .single();
+
+  return data?.id ?? null;
+}
+
+function buildAlbumPayload(formData: FormData, shareToken?: string) {
+  const title = String(formData.get("title") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim() || null;
+  const visibility = String(formData.get("visibility") ?? "private").trim() === "public" ? "public" : "private";
+  const galleryPassword = String(formData.get("galleryPassword") ?? "").trim();
+  const eventDate = String(formData.get("eventDate") ?? "").trim() || null;
+  const status = parseStatus(String(formData.get("status") ?? "Draft"));
+
+  return {
+    title,
+    slugSeed: slugify(title),
+    status,
+    visibility,
+    description,
+    event_date: eventDate,
+    password: galleryPassword,
+    share_token: shareToken,
+  };
+}
+
+export async function createAlbumAction(formData: FormData) {
+  const profile = await requireAdminProfile();
+  const supabase = await createClient();
+  const payload = buildAlbumPayload(formData);
+  const slug = await ensureUniqueSlug(payload.slugSeed);
+  const clientId = await upsertClientFromForm(profile.id, formData);
+
+  const insertData = {
+    owner_id: profile.id,
+    client_id: clientId,
+    title: payload.title,
+    slug,
+    description: payload.description,
+    status: payload.status,
+    visibility: payload.visibility,
+    event_date: payload.event_date,
+    password_hash: payload.password ? await bcrypt.hash(payload.password, 10) : null,
+  };
+
+  const { data, error } = await supabase.from("albums").insert(insertData).select("id").single();
+
+  if (error || !data) {
+    redirect(`/dashboard?message=${encodeURIComponent(error?.message ?? "Unable to create album")}`);
+  }
+
+  revalidatePath("/dashboard");
+  redirect(`/dashboard/albums/${data.id}/upload`);
+}
+
+export async function updateAlbumAction(formData: FormData) {
+  const profile = await requireAdminProfile();
+  const albumId = String(formData.get("albumId") ?? "").trim();
+  const supabase = await createClient();
+
+  const { data: existing } = await supabase
+    .from("albums")
+    .select("*")
+    .eq("id", albumId)
+    .eq("owner_id", profile.id)
+    .single();
+
+  if (!existing) {
+    redirect("/dashboard");
+  }
+
+  const payload = buildAlbumPayload(formData, existing.share_token);
+  const slug = await ensureUniqueSlug(payload.slugSeed, albumId);
+  const clientId = await upsertClientFromForm(profile.id, formData, existing.client_id);
+
+  const updateData = {
+    title: payload.title,
+    slug,
+    description: payload.description,
+    status: payload.status,
+    visibility: payload.visibility,
+    event_date: payload.event_date,
+    client_id: clientId,
+    ...(payload.password ? { password_hash: await bcrypt.hash(payload.password, 10) } : {}),
+  };
+
+  const { error } = await supabase
+    .from("albums")
+    .update(updateData)
+    .eq("id", albumId)
+    .eq("owner_id", profile.id);
+
+  if (error) {
+    redirect(`/dashboard/albums/${albumId}/edit?message=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath(`/dashboard/albums/${albumId}/edit`);
+  revalidatePath(`/gallery/${slug}`);
+  redirect("/dashboard");
+}
+
+export async function refreshShareLinkAction(formData: FormData) {
+  const profile = await requireAdminProfile();
+  const albumId = String(formData.get("albumId") ?? "").trim();
+  const supabase = await createClient();
+
+  await supabase
+    .from("albums")
+    .update({ share_token: crypto.randomUUID() })
+    .eq("id", albumId)
+    .eq("owner_id", profile.id);
+
+  revalidatePath("/dashboard");
+  redirect("/dashboard");
+}
