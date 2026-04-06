@@ -2,7 +2,7 @@ import { createBrowserClient } from "@supabase/ssr";
 import { env } from "@/lib/env";
 
 export function createClient() {
-  return createBrowserClient(
+  return createBrowserClient<any>(
     env.supabaseUrl,
     env.supabasePublishableKey
   );
