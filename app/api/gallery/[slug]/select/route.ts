@@ -8,6 +8,13 @@ import {
 } from "@/lib/album-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+type GalleryAlbum = {
+  id: string;
+  visibility: "public" | "private";
+  share_token: string | null;
+  password_hash: string | null;
+};
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
@@ -16,11 +23,13 @@ export async function POST(
   const body = await request.json();
   const admin = createAdminClient();
 
-  const { data: album } = await admin
+  const result = await admin
     .from("albums")
     .select("id, visibility, share_token, password_hash")
     .eq("slug", slug)
     .maybeSingle();
+
+  const album = result.data as GalleryAlbum | null;
 
   if (!album) {
     return NextResponse.json({ error: "Gallery not found" }, { status: 404 });
@@ -35,14 +44,19 @@ export async function POST(
   }
 
   const cookieStore = await cookies();
-  const albumAccess = cookieStore.get(getAlbumAccessCookieName(album.id))?.value ?? null;
+  const albumAccess =
+    cookieStore.get(getAlbumAccessCookieName(album.id))?.value ?? null;
 
   if (album.password_hash && !verifyAlbumAccessCookieValue(album.id, albumAccess)) {
-    return NextResponse.json({ error: "Password access required" }, { status: 403 });
+    return NextResponse.json(
+      { error: "Password access required" },
+      { status: 403 }
+    );
   }
 
   const selectionCookieName = getSelectionCookieName(album.id);
-  const existingSelectionKey = cookieStore.get(selectionCookieName)?.value ?? null;
+  const existingSelectionKey =
+    cookieStore.get(selectionCookieName)?.value ?? null;
   const selectionKey = getSelectionKey(existingSelectionKey);
 
   if (body.selected) {
