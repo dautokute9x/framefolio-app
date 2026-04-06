@@ -1,11 +1,13 @@
 import { createServerClient } from "@supabase/ssr";
-import { type NextRequest, NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 
 export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  let response = NextResponse.next({
+    request,
+  });
 
-  const supabase = createServerClient(
+  const supabase = createServerClient<any>(
     env.supabaseUrl,
     env.supabasePublishableKey,
     {
@@ -13,7 +15,13 @@ export async function updateSession(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet) {
+        setAll(
+          cookiesToSet: Array<{
+            name: string;
+            value: string;
+            options?: Record<string, any>;
+          }>
+        ) {
           cookiesToSet.forEach(({ name, value, options }) => {
             request.cookies.set(name, value);
             response.cookies.set(name, value, options);
@@ -24,5 +32,6 @@ export async function updateSession(request: NextRequest) {
   );
 
   await supabase.auth.getUser();
+
   return response;
 }
