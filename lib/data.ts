@@ -73,15 +73,13 @@ export async function getPublicPortfolioAlbums(limit = 6): Promise<AlbumCardData
       .filter(Boolean) as Photo[]
   );
 
-  const urlMap = new Map(signed.map((photo) => [photo.id, photo.signedUrl]));
-  return items.map((album) => ({
-    ...album,
-    photo_count: (byAlbum.get(album.id) ?? []).length,
-    cover_photo_url: album.cover_photo_id
-      ? urlMap.get(album.cover_photo_id) ?? null
-      : ((signed.find((photo) => photo.album_id === album.id)?.signedUrl as string | null) ?? null),
-  }));
+  const urlMap = new Map<string, string | null>();
+
+for (const row of data ?? []) {
+  if (!row?.path) continue;
+  urlMap.set(row.path, row.signedUrl ?? null);
 }
+
 
 export async function getDashboardAlbums(ownerId: string): Promise<AlbumCardData[]> {
   const supabase = await createClient();
