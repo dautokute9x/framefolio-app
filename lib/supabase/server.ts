@@ -5,7 +5,7 @@ import { env } from "@/lib/env";
 export async function createClient() {
   const cookieStore = await cookies();
 
-  return createServerClient(
+  return createServerClient<any>(
     env.supabaseUrl,
     env.supabasePublishableKey,
     {
