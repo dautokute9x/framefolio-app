@@ -67,7 +67,7 @@ export async function POST(
         selection_key: selectionKey,
         selector_name: String(body.selectorName ?? "").trim() || null,
         selector_email: String(body.selectorEmail ?? "").trim() || null,
-      },
+      } as any,
       {
         onConflict: "album_id,photo_id,selection_key",
       }
