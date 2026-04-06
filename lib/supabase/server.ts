@@ -13,14 +13,19 @@ export async function createClient() {
         getAll() {
           return cookieStore.getAll();
         },
-        setAll(items) {
+        setAll(
+          items: Array<{
+            name: string;
+            value: string;
+            options?: Record<string, any>;
+          }>
+        ) {
           try {
             items.forEach(({ name, value, options }) => {
               cookieStore.set(name, value, options);
             });
           } catch {
-            // Server Components cannot always mutate cookies.
-            // Middleware refresh covers the normal session lifecycle.
+            // ignore in contexts where cookies are read-only
           }
         },
       },
