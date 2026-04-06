@@ -8,7 +8,6 @@ import type {
   Client,
   GalleryAlbumPayload,
   Photo,
-  PhotoWithUrl,
   Selection,
 } from "@/lib/types";
 
@@ -23,6 +22,7 @@ async function createSignedPhotoUrls(photos: Photo[]) {
 
   const urlMap = new Map<string, string | null>();
   (data ?? []).forEach((row) => {
+    if (!row?.path) return;
     urlMap.set(row.path, row.signedUrl ?? null);
   });
 
@@ -32,7 +32,9 @@ async function createSignedPhotoUrls(photos: Photo[]) {
   }));
 }
 
-export async function getPublicPortfolioAlbums(limit = 6): Promise<AlbumCardData[]> {
+export async function getPublicPortfolioAlbums(
+  limit = 6
+): Promise<AlbumCardData[]> {
   const supabase = await createClient();
   const { data: albums } = await supabase
     .from("albums")
@@ -67,21 +69,29 @@ export async function getPublicPortfolioAlbums(limit = 6): Promise<AlbumCardData
       .map((album) => {
         const albumPhotos = byAlbum.get(album.id) ?? [];
         const cover =
-          albumPhotos.find((photo) => photo.id === album.cover_photo_id) ?? albumPhotos[0];
+          albumPhotos.find((photo) => photo.id === album.cover_photo_id) ??
+          albumPhotos[0];
         return cover;
       })
       .filter(Boolean) as Photo[]
   );
 
-  const urlMap = new Map<string, string | null>();
+  const urlMap = new Map(signed.map((photo) => [photo.id, photo.signedUrl]));
 
-for (const row of data ?? []) {
-  if (!row?.path) continue;
-  urlMap.set(row.path, row.signedUrl ?? null);
+  return items.map((album) => ({
+    ...album,
+    photo_count: (byAlbum.get(album.id) ?? []).length,
+    cover_photo_url: album.cover_photo_id
+      ? urlMap.get(album.cover_photo_id) ?? null
+      : ((signed.find((photo) => photo.album_id === album.id)?.signedUrl as
+          | string
+          | null) ?? null),
+  }));
 }
 
-
-export async function getDashboardAlbums(ownerId: string): Promise<AlbumCardData[]> {
+export async function getDashboardAlbums(
+  ownerId: string
+): Promise<AlbumCardData[]> {
   const supabase = await createClient();
   const { data: albums } = await supabase
     .from("albums")
@@ -89,7 +99,9 @@ export async function getDashboardAlbums(ownerId: string): Promise<AlbumCardData
     .eq("owner_id", ownerId)
     .order("created_at", { ascending: false });
 
-  const items = (albums ?? []) as (Album & { clients: Pick<Client, "name" | "email"> | null })[];
+  const items = (albums ?? []) as (Album & {
+    clients: Pick<Client, "name" | "email"> | null;
+  })[];
   const albumIds = items.map((item) => item.id);
 
   const { data: photos } = albumIds.length
@@ -111,7 +123,10 @@ export async function getDashboardAlbums(ownerId: string): Promise<AlbumCardData
   const covers = items
     .map((album) => {
       const albumPhotos = byAlbum.get(album.id) ?? [];
-      return albumPhotos.find((photo) => photo.id === album.cover_photo_id) ?? albumPhotos[0];
+      return (
+        albumPhotos.find((photo) => photo.id === album.cover_photo_id) ??
+        albumPhotos[0]
+      );
     })
     .filter(Boolean) as Photo[];
 
@@ -120,7 +135,10 @@ export async function getDashboardAlbums(ownerId: string): Promise<AlbumCardData
 
   return items.map((album) => {
     const albumPhotos = byAlbum.get(album.id) ?? [];
-    const cover = albumPhotos.find((photo) => photo.id === album.cover_photo_id) ?? albumPhotos[0];
+    const cover =
+      albumPhotos.find((photo) => photo.id === album.cover_photo_id) ??
+      albumPhotos[0];
+
     return {
       ...album,
       photo_count: albumPhotos.length,
@@ -131,16 +149,27 @@ export async function getDashboardAlbums(ownerId: string): Promise<AlbumCardData
 
 export async function getDashboardSummary(ownerId: string) {
   const supabase = await createClient();
+
   const [{ count: albumCount }, { count: photoCount }, { data: albums }] =
     await Promise.all([
-      supabase.from("albums").select("*", { count: "exact", head: true }).eq("owner_id", ownerId),
-      supabase.from("photos").select("*", { count: "exact", head: true }).eq("owner_id", ownerId),
+      supabase
+        .from("albums")
+        .select("*", { count: "exact", head: true })
+        .eq("owner_id", ownerId),
+      supabase
+        .from("photos")
+        .select("*", { count: "exact", head: true })
+        .eq("owner_id", ownerId),
       supabase.from("albums").select("id").eq("owner_id", ownerId),
     ]);
 
   const albumIds = (albums ?? []).map((item) => item.id);
+
   const { count: selectionCount } = albumIds.length
-    ? await supabase.from("selections").select("*", { count: "exact", head: true }).in("album_id", albumIds)
+    ? await supabase
+        .from("selections")
+        .select("*", { count: "exact", head: true })
+        .in("album_id", albumIds)
     : { count: 0 };
 
   return {
@@ -199,7 +228,9 @@ export async function getGalleryAlbumBySlug(
 
   if (!albumRow) return null;
 
-  const album = albumRow as Album & { clients: Pick<Client, "name" | "email"> | null };
+  const album = albumRow as Album & {
+    clients: Pick<Client, "name" | "email"> | null;
+  };
   const shareTokenValidated = !!shareToken && shareToken === album.share_token;
 
   if (album.visibility === "private" && !shareTokenValidated) {
@@ -225,7 +256,9 @@ export async function getGalleryAlbumBySlug(
     album,
     photos: await createSignedPhotoUrls((photos ?? []) as Photo[]),
     requiresPassword: !!album.password_hash,
-    canAccessWithoutPassword: album.visibility === "public" || (shareTokenValidated && !album.password_hash),
+    canAccessWithoutPassword:
+      album.visibility === "public" ||
+      (shareTokenValidated && !album.password_hash),
     shareTokenValidated,
     shareToken,
   };
@@ -242,17 +275,25 @@ export async function getSelectionIds(albumId: string, selectionKey: string) {
   return new Set((data ?? []).map((item) => item.photo_id));
 }
 
-export async function recordAlbumView(albumId: string, viewerIp?: string | null, userAgent?: string | null, shareToken?: string | null) {
+export async function recordAlbumView(
+  albumId: string,
+  viewerIp?: string | null,
+  userAgent?: string | null,
+  shareToken?: string | null
+) {
   const admin = createAdminClient();
   await admin.from("album_views").insert({
     album_id: albumId,
     viewer_ip: viewerIp ?? null,
     viewer_agent: userAgent ?? null,
     share_token: shareToken ?? null,
-  });
+  } as any);
 }
 
-export async function getSelectedPhotosForSession(albumId: string, selectionKey: string) {
+export async function getSelectedPhotosForSession(
+  albumId: string,
+  selectionKey: string
+) {
   const admin = createAdminClient();
   const { data: selections } = await admin
     .from("selections")
@@ -265,6 +306,7 @@ export async function getSelectedPhotosForSession(albumId: string, selectionKey:
   const photos = raw.map((item) => item.photos).filter(Boolean);
   const signed = await createSignedPhotoUrls(photos);
   const urlMap = new Map(signed.map((item) => [item.id, item.signedUrl]));
+
   return raw.map((item) => ({
     ...item,
     photos: {
@@ -292,7 +334,9 @@ export async function getAlbumSelectionReview(albumId: string, ownerId: string) 
     .order("created_at", { ascending: false });
 
   const rows = (selections ?? []) as (Selection & { photos: Photo })[];
-  const signed = await createSignedPhotoUrls(rows.map((row) => row.photos).filter(Boolean));
+  const signed = await createSignedPhotoUrls(
+    rows.map((row) => row.photos).filter(Boolean)
+  );
   const urlMap = new Map(signed.map((item) => [item.id, item.signedUrl]));
 
   return {
