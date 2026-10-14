@@ -38,6 +38,7 @@ export type Album = {
   event_date: string | null;
   delivered_at: string | null;
   cover_photo_id: string | null;
+  selection_limit: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -47,6 +48,7 @@ export type Photo = {
   album_id: string;
   owner_id: string;
   file_path: string;
+  preview_path: string | null;
   file_name: string;
   storage_bucket: string;
   width: number | null;
@@ -66,6 +68,24 @@ export type Selection = {
   created_at: string;
 };
 
+export type SelectionSession = {
+  id: string;
+  album_id: string;
+  selection_key: string;
+  selector_name: string | null;
+  selector_email: string | null;
+  note: string | null;
+  submitted_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/** Album fields that are safe to send to an anonymous visitor. */
+export type PublicAlbum = Pick<
+  Album,
+  "id" | "title" | "slug" | "description" | "status" | "visibility" | "event_date" | "selection_limit"
+> & { clients: Pick<Client, "name"> | null };
+
 export type AlbumCardData = Album & {
   clients: Pick<Client, "name" | "email"> | null;
   photo_count: number;
@@ -76,11 +96,10 @@ export type PhotoWithUrl = Photo & {
   signedUrl: string | null;
 };
 
-export type GalleryAlbumPayload = {
-  album: Album & { clients: Pick<Client, "name" | "email"> | null };
-  photos: PhotoWithUrl[];
-  requiresPassword: boolean;
-  canAccessWithoutPassword: boolean;
-  shareTokenValidated: boolean;
-  shareToken?: string | null;
+export type GalleryPhoto = {
+  id: string;
+  file_name: string;
+  width: number | null;
+  height: number | null;
+  url: string | null;
 };

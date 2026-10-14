@@ -50,7 +50,7 @@ export default async function DashboardPage() {
 
         <div className="divide-y divide-border">
           {albums.map((album) => {
-            const shareUrl = buildShareLink(album.slug, album.share_token);
+            const shareUrl = buildShareLink(album);
 
             return (
               <div key={album.id} className="grid gap-5 px-6 py-5 xl:grid-cols-[minmax(0,1fr)_300px]">
@@ -82,7 +82,7 @@ export default async function DashboardPage() {
                       <Link href={`/dashboard/albums/${album.id}/selections`}>Review selections</Link>
                     </Button>
                     <Button asChild variant="ghost" size="sm">
-                      <Link href={`/gallery/${album.slug}${album.visibility === "private" ? `?share=${album.share_token}` : ""}`} target="_blank">
+                      <Link href={shareUrl} target="_blank">
                         Open gallery
                         <ExternalLink className="ml-2 h-4 w-4" />
                       </Link>

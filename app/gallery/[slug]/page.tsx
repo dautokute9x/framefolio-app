@@ -1,10 +1,27 @@
-import { headers } from "next/headers";
+import type { Metadata } from "next";
+import { cookies, headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { GalleryPasswordGate } from "@/components/gallery/gallery-password-gate";
 import { ClientGallery } from "@/components/gallery/client-gallery";
-import { canAccessAlbum } from "@/lib/album-access";
-import { getGalleryAlbumBySlug, getSelectionIds, recordAlbumView } from "@/lib/data";
-import { cookies } from "next/headers";
+import {
+  getSelectionCookieName,
+  hasAlbumPasswordAccess,
+  isSelectionOpen,
+  isShareTokenValid,
+} from "@/lib/album-access";
+import {
+  getGalleryAlbumBySlug,
+  getGalleryPhotos,
+  getSelectionIds,
+  getSelectionSession,
+  recordAlbumView,
+  toPublicAlbum,
+} from "@/lib/data";
+
+// Client galleries are private by nature: keep them out of search engines.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default async function GalleryPage({
   params,
@@ -17,47 +34,53 @@ export default async function GalleryPage({
   const query = (await searchParams) ?? {};
   const shareToken = typeof query.share === "string" ? query.share : null;
 
-  const payload = await getGalleryAlbumBySlug(slug, shareToken);
-  if (!payload) notFound();
+  const album = await getGalleryAlbumBySlug(slug);
+  // Same response for "does not exist" and "wrong share token" so private
+  // albums cannot be discovered by guessing slugs.
+  if (!album || !isShareTokenValid(album, shareToken)) notFound();
 
-  if (payload.album.visibility === "private" && !payload.shareTokenValidated) {
-    notFound();
-  }
-
-  const access = await canAccessAlbum(payload.album, shareToken);
-  if (payload.requiresPassword && !access) {
+  if (!(await hasAlbumPasswordAccess(album))) {
     return (
-      <GalleryPasswordGate
-        slug={slug}
-        title={payload.album.title}
-        shareToken={shareToken}
-      />
+      <GalleryPasswordGate slug={slug} title={album.title} shareToken={shareToken} />
     );
   }
 
+  const cookieStore = await cookies();
+  const selectionKey = cookieStore.get(getSelectionCookieName(album.id))?.value ?? "";
+
+  const [photos, selectedIds, session] = await Promise.all([
+    getGalleryPhotos(album.id),
+    selectionKey ? getSelectionIds(album.id, selectionKey) : Promise.resolve(new Set<string>()),
+    getSelectionSession(album.id, selectionKey),
+  ]);
+
   const headerStore = await headers();
-  await recordAlbumView(
-    payload.album.id,
-    headerStore.get("x-forwarded-for"),
+  // Fire-and-forget: a failed analytics insert must never break the gallery.
+  void recordAlbumView(
+    album.id,
+    headerStore.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
     headerStore.get("user-agent"),
     shareToken
-  );
-
-  const cookieStore = await cookies();
-  const selectionKey = cookieStore.get(`gallery-selection-${payload.album.id}`)?.value ?? "";
-  const selectedIds = selectionKey
-    ? Array.from(await getSelectionIds(payload.album.id, selectionKey))
-    : [];
+  ).catch(() => undefined);
 
   return (
-    <div className="bg-[#fbfaf7]">
+    <div className="min-h-screen bg-[#fbfaf7]">
       <ClientGallery
-        slug={slug}
-        albumId={payload.album.id}
-        albumTitle={payload.album.title}
-        photos={payload.photos}
-        initiallySelected={selectedIds}
+        album={toPublicAlbum(album)}
+        photos={photos}
+        initiallySelected={Array.from(selectedIds)}
         shareToken={shareToken}
+        selectionOpen={isSelectionOpen(album.status)}
+        initialSession={
+          session
+            ? {
+                selectorName: session.selector_name ?? "",
+                selectorEmail: session.selector_email ?? "",
+                note: session.note ?? "",
+                submittedAt: session.submitted_at,
+              }
+            : null
+        }
       />
     </div>
   );

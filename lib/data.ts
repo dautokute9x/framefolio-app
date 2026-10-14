@@ -6,19 +6,38 @@ import type {
   Album,
   AlbumCardData,
   Client,
-  GalleryAlbumPayload,
+  GalleryPhoto,
   Photo,
+  PhotoWithUrl,
+  PublicAlbum,
   Selection,
+  SelectionSession,
 } from "@/lib/types";
 
-async function createSignedPhotoUrls(photos: Photo[]) {
+const SIGNED_URL_TTL_SECONDS = 60 * 60 * 6;
+
+/**
+ * Signs storage URLs for photos. With `preferPreview` the web-size preview is
+ * used when one exists, so clients never download the full-resolution original.
+ */
+async function createSignedPhotoUrls(
+  photos: Photo[],
+  { preferPreview = true }: { preferPreview?: boolean } = {}
+): Promise<PhotoWithUrl[]> {
   if (!photos.length) return [];
 
+  const pathFor = (photo: Photo) =>
+    preferPreview && photo.preview_path ? photo.preview_path : photo.file_path;
+
   const admin = createAdminClient();
-  const paths = photos.map((item) => item.file_path);
-  const { data } = await admin.storage
+  const paths = Array.from(new Set(photos.map(pathFor)));
+  const { data, error } = await admin.storage
     .from(PHOTO_BUCKET)
-    .createSignedUrls(paths, 60 * 60);
+    .createSignedUrls(paths, SIGNED_URL_TTL_SECONDS);
+
+  if (error) {
+    console.error("[storage] createSignedUrls failed", error.message);
+  }
 
   const urlMap = new Map<string, string | null>();
   (data ?? []).forEach((row) => {
@@ -28,24 +47,28 @@ async function createSignedPhotoUrls(photos: Photo[]) {
 
   return photos.map((photo) => ({
     ...photo,
-    signedUrl: urlMap.get(photo.file_path) ?? null,
+    signedUrl: urlMap.get(pathFor(photo)) ?? null,
   }));
 }
 
 export async function getPublicPortfolioAlbums(
   limit = 6
 ): Promise<AlbumCardData[]> {
-  const supabase = await createClient();
+  // Anonymous visitors cannot read `albums` through RLS (owner-only policy), so
+  // this server-only query uses the service client and selects safe columns only.
+  const supabase = createAdminClient();
   const { data: albums } = await supabase
     .from("albums")
-    .select("*, clients(name,email)")
+    .select(
+      "id, owner_id, client_id, title, slug, description, status, visibility, event_date, delivered_at, cover_photo_id, selection_limit, created_at, updated_at, clients(name)"
+    )
     .eq("visibility", "public")
     .order("event_date", { ascending: false, nullsFirst: false })
     .limit(limit);
 
-  const items = (albums ?? []) as (Album & {
-    clients: Pick<Client, "name" | "email"> | null;
-  })[];
+  const items = ((albums ?? []) as unknown as Omit<Album, "password_hash" | "share_token">[]).map(
+    (album) => ({ ...album, password_hash: null, share_token: "" })
+  ) as (Album & { clients: Pick<Client, "name" | "email"> | null })[];
 
   const albumIds = items.map((item) => item.id);
   if (!albumIds.length) return [];
@@ -215,53 +238,69 @@ export async function getUploadPhotosForAlbum(albumId: string, ownerId: string) 
   return createSignedPhotoUrls((data ?? []) as Photo[]);
 }
 
-export async function getGalleryAlbumBySlug(
-  slug: string,
-  shareToken?: string | null
-): Promise<GalleryAlbumPayload | null> {
-  const supabase = await createClient();
-  const { data: albumRow } = await supabase
+type GalleryAlbumRow = Album & { clients: Pick<Client, "name"> | null };
+
+/**
+ * Loads an album for the public gallery. Runs with the service client because
+ * anonymous visitors have no RLS access to `albums`; every caller MUST check
+ * access with `canAccessAlbum` before exposing photos.
+ */
+export async function getGalleryAlbumBySlug(slug: string): Promise<GalleryAlbumRow | null> {
+  const admin = createAdminClient();
+  const { data } = await admin
     .from("albums")
-    .select("*, clients(name,email)")
+    .select("*, clients(name)")
     .eq("slug", slug)
     .maybeSingle();
 
-  if (!albumRow) return null;
+  return (data as GalleryAlbumRow | null) ?? null;
+}
 
-  const album = albumRow as Album & {
-    clients: Pick<Client, "name" | "email"> | null;
+export function toPublicAlbum(album: GalleryAlbumRow): PublicAlbum {
+  return {
+    id: album.id,
+    title: album.title,
+    slug: album.slug,
+    description: album.description,
+    status: album.status,
+    visibility: album.visibility,
+    event_date: album.event_date,
+    selection_limit: album.selection_limit,
+    clients: album.clients ? { name: album.clients.name } : null,
   };
-  const shareTokenValidated = !!shareToken && shareToken === album.share_token;
+}
 
-  if (album.visibility === "private" && !shareTokenValidated) {
-    return {
-      album,
-      photos: [],
-      requiresPassword: !!album.password_hash,
-      canAccessWithoutPassword: false,
-      shareTokenValidated: false,
-      shareToken,
-    };
-  }
-
+/** Photos for an album the caller has already verified access to. */
+export async function getGalleryPhotos(albumId: string): Promise<GalleryPhoto[]> {
   const admin = createAdminClient();
   const { data: photos } = await admin
     .from("photos")
     .select("*")
-    .eq("album_id", album.id)
+    .eq("album_id", albumId)
     .eq("is_archived", false)
-    .order("sort_order", { ascending: true });
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
 
-  return {
-    album,
-    photos: await createSignedPhotoUrls((photos ?? []) as Photo[]),
-    requiresPassword: !!album.password_hash,
-    canAccessWithoutPassword:
-      album.visibility === "public" ||
-      (shareTokenValidated && !album.password_hash),
-    shareTokenValidated,
-    shareToken,
-  };
+  const signed = await createSignedPhotoUrls((photos ?? []) as Photo[]);
+  return signed.map((photo) => ({
+    id: photo.id,
+    file_name: photo.file_name,
+    width: photo.width,
+    height: photo.height,
+    url: photo.signedUrl,
+  }));
+}
+
+export async function getSelectionSession(albumId: string, selectionKey: string) {
+  if (!selectionKey) return null;
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("selection_sessions")
+    .select("*")
+    .eq("album_id", albumId)
+    .eq("selection_key", selectionKey)
+    .maybeSingle();
+  return (data as SelectionSession | null) ?? null;
 }
 
 export async function getSelectionIds(albumId: string, selectionKey: string) {
@@ -302,8 +341,10 @@ export async function getSelectedPhotosForSession(
     .eq("selection_key", selectionKey)
     .order("created_at", { ascending: true });
 
-  const raw = (selections ?? []) as (Selection & { photos: Photo })[];
-  const photos = raw.map((item) => item.photos).filter(Boolean);
+  const raw = ((selections ?? []) as (Selection & { photos: Photo | null })[]).filter(
+    (item) => !!item.photos && !item.photos.is_archived
+  ) as (Selection & { photos: Photo })[];
+  const photos = raw.map((item) => item.photos);
   const signed = await createSignedPhotoUrls(photos);
   const urlMap = new Map(signed.map((item) => [item.id, item.signedUrl]));
 
@@ -327,31 +368,84 @@ export async function getAlbumSelectionReview(albumId: string, ownerId: string) 
 
   if (!album) return null;
 
-  const { data: selections } = await admin
-    .from("selections")
-    .select("*, photos(*)")
-    .eq("album_id", albumId)
-    .order("created_at", { ascending: false });
+  const [{ data: selections }, { data: sessions }, { count: photoCount }] = await Promise.all([
+    admin
+      .from("selections")
+      .select("*, photos(*)")
+      .eq("album_id", albumId)
+      .order("created_at", { ascending: true }),
+    admin
+      .from("selection_sessions")
+      .select("*")
+      .eq("album_id", albumId)
+      .order("updated_at", { ascending: false }),
+    admin
+      .from("photos")
+      .select("id", { count: "exact", head: true })
+      .eq("album_id", albumId)
+      .eq("is_archived", false),
+  ]);
 
-  const rows = (selections ?? []) as (Selection & { photos: Photo })[];
-  const signed = await createSignedPhotoUrls(
-    rows.map((row) => row.photos).filter(Boolean)
-  );
+  const rows = ((selections ?? []) as (Selection & { photos: Photo | null })[]).filter(
+    (row) => !!row.photos
+  ) as (Selection & { photos: Photo })[];
+  const signed = await createSignedPhotoUrls(rows.map((row) => row.photos));
   const urlMap = new Map(signed.map((item) => [item.id, item.signedUrl]));
 
+  const sessionMap = new Map(
+    ((sessions ?? []) as SelectionSession[]).map((session) => [session.selection_key, session])
+  );
+
+  const groups = new Map<
+    string,
+    {
+      selectionKey: string;
+      session: SelectionSession | null;
+      name: string | null;
+      email: string | null;
+      photos: (Photo & { signedUrl: string | null; selectedAt: string })[];
+    }
+  >();
+
+  for (const row of rows) {
+    const group = groups.get(row.selection_key) ?? {
+      selectionKey: row.selection_key,
+      session: sessionMap.get(row.selection_key) ?? null,
+      name: null,
+      email: null,
+      photos: [],
+    };
+    group.name = group.session?.selector_name ?? row.selector_name ?? group.name;
+    group.email = group.session?.selector_email ?? row.selector_email ?? group.email;
+    group.photos.push({
+      ...row.photos,
+      signedUrl: urlMap.get(row.photo_id) ?? null,
+      selectedAt: row.created_at,
+    });
+    groups.set(row.selection_key, group);
+  }
+
+  for (const group of groups.values()) {
+    group.photos.sort((a, b) => a.sort_order - b.sort_order);
+  }
+
+  const ordered = Array.from(groups.values()).sort((a, b) => {
+    const aTime = a.session?.submitted_at ?? a.session?.updated_at ?? "";
+    const bTime = b.session?.submitted_at ?? b.session?.updated_at ?? "";
+    return bTime.localeCompare(aTime);
+  });
+
   return {
-    album,
-    selections: rows.map((row) => ({
-      ...row,
-      photos: {
-        ...row.photos,
-        signedUrl: urlMap.get(row.photo_id) ?? null,
-      },
-    })),
+    album: album as Album & { clients: Pick<Client, "name" | "email"> | null },
+    photoCount: photoCount ?? 0,
+    groups: ordered,
   };
 }
 
-export function buildShareLink(slug: string, shareToken: string) {
-  const base = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-  return `${base}/gallery/${slug}?share=${shareToken}`;
+export function buildShareLink(
+  album: Pick<Album, "slug" | "share_token" | "visibility">
+) {
+  const base = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  const query = album.visibility === "private" ? `?share=${album.share_token}` : "";
+  return `${base}/gallery/${album.slug}${query}`;
 }

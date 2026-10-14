@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight, Images } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,11 +9,12 @@ export function PortfolioCard({ album }: { album: AlbumCardData }) {
     <Card className="overflow-hidden">
       <div className="relative aspect-[4/5] overflow-hidden bg-secondary">
         {album.cover_photo_url ? (
-          <Image
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
             src={album.cover_photo_url}
             alt={album.title}
-            fill
-            className="object-cover transition-transform duration-500 hover:scale-[1.03]"
+            loading="lazy"
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 hover:scale-[1.03]"
           />
         ) : (
           <div className="flex h-full items-center justify-center text-muted-foreground">
