@@ -35,11 +35,14 @@ async function createSignedPhotoUrls(photos: Photo[]) {
 export async function getPublicPortfolioAlbums(
   limit = 6
 ): Promise<AlbumCardData[]> {
-  const supabase = await createClient();
+  // Anonymous visitors cannot read albums through RLS, so use the admin client
+  // and restrict to public albums without a gallery password.
+  const supabase = createAdminClient();
   const { data: albums } = await supabase
     .from("albums")
     .select("*, clients(name,email)")
     .eq("visibility", "public")
+    .is("password_hash", null)
     .order("event_date", { ascending: false, nullsFirst: false })
     .limit(limit);
 
@@ -219,8 +222,10 @@ export async function getGalleryAlbumBySlug(
   slug: string,
   shareToken?: string | null
 ): Promise<GalleryAlbumPayload | null> {
-  const supabase = await createClient();
-  const { data: albumRow } = await supabase
+  // Gallery visitors are usually anonymous; access is enforced in code below
+  // and by canAccessAlbum, not by RLS.
+  const admin = createAdminClient();
+  const { data: albumRow } = await admin
     .from("albums")
     .select("*, clients(name,email)")
     .eq("slug", slug)
@@ -244,7 +249,6 @@ export async function getGalleryAlbumBySlug(
     };
   }
 
-  const admin = createAdminClient();
   const { data: photos } = await admin
     .from("photos")
     .select("*")

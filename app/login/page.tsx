@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DEMO_EMAIL, DEMO_PASSWORD } from "@/lib/constants";
+import { serverEnv } from "@/lib/env.server";
 import { signInAction, signUpAction } from "@/lib/server-actions/auth";
 
 export default async function LoginPage({
@@ -52,23 +53,25 @@ export default async function LoginPage({
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="space-y-5 p-8">
-            <div>
-              <h2 className="text-xl font-semibold">Create photographer account</h2>
-              <p className="text-sm text-muted-foreground">
-                The first authenticated user becomes usable immediately after the profile trigger runs.
-              </p>
-            </div>
+        {serverEnv.allowSignup ? (
+          <Card>
+            <CardContent className="space-y-5 p-8">
+              <div>
+                <h2 className="text-xl font-semibold">Create photographer account</h2>
+                <p className="text-sm text-muted-foreground">
+                  The first authenticated user becomes usable immediately after the profile trigger runs.
+                </p>
+              </div>
 
-            <form action={signUpAction} className="space-y-4">
-              <Input name="fullName" placeholder="Full name" />
-              <Input name="email" type="email" placeholder="Email" required />
-              <Input name="password" type="password" placeholder="Password" required />
-              <Button type="submit" variant="outline" className="w-full">Create account</Button>
-            </form>
-          </CardContent>
-        </Card>
+              <form action={signUpAction} className="space-y-4">
+                <Input name="fullName" placeholder="Full name" />
+                <Input name="email" type="email" placeholder="Email" required />
+                <Input name="password" type="password" placeholder="Password" required />
+                <Button type="submit" variant="outline" className="w-full">Create account</Button>
+              </form>
+            </CardContent>
+          </Card>
+        ) : null}
       </div>
     </div>
   );

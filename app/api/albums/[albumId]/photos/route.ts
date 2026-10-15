@@ -1,18 +1,47 @@
 import { NextResponse } from "next/server";
-import { requireAdminProfile } from "@/lib/auth";
+import { z } from "zod";
+import { getCurrentProfile } from "@/lib/auth";
+import { readJsonBody } from "@/lib/http";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PHOTO_BUCKET } from "@/lib/constants";
+
+const registerSchema = z.object({
+  filePath: z.string().min(1).max(1024),
+  fileName: z.string().min(1).max(500),
+  width: z.number().int().positive().nullish(),
+  height: z.number().int().positive().nullish(),
+  sortOrder: z.number().int().nullish(),
+});
+
+const deleteSchema = z.object({
+  photoId: z.string().uuid(),
+});
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ albumId: string }> }
 ) {
   const { albumId } = await params;
-  const profile = await requireAdminProfile();
+  const profile = await getCurrentProfile();
+  if (!profile) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const parsed = registerSchema.safeParse(await readJsonBody(request));
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  }
+  const body = parsed.data;
+
+  // Only allow registering files uploaded into this owner's album folder.
+  const expectedPrefix = `${profile.id}/${albumId}/`;
+  if (!body.filePath.startsWith(expectedPrefix) || body.filePath.includes("..")) {
+    return NextResponse.json({ error: "Invalid file path" }, { status: 400 });
+  }
+
   const supabase = await createClient();
   const admin = createAdminClient();
-  const body = await request.json();
 
   const { data: album } = await supabase
     .from("albums")
@@ -65,14 +94,22 @@ export async function DELETE(
   { params }: { params: Promise<{ albumId: string }> }
 ) {
   const { albumId } = await params;
-  const profile = await requireAdminProfile();
+  const profile = await getCurrentProfile();
+  if (!profile) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const parsed = deleteSchema.safeParse(await readJsonBody(request));
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  }
+
   const supabase = await createClient();
-  const body = await request.json();
 
   const { data: photo } = await supabase
     .from("photos")
     .select("*")
-    .eq("id", body.photoId)
+    .eq("id", parsed.data.photoId)
     .eq("album_id", albumId)
     .eq("owner_id", profile.id)
     .maybeSingle();
@@ -81,9 +118,14 @@ export async function DELETE(
     return NextResponse.json({ error: "Photo not found" }, { status: 404 });
   }
 
-  await supabase.from("photos").delete().eq("id", photo.id);
+  const { error: deleteError } = await supabase.from("photos").delete().eq("id", photo.id);
+  if (deleteError) {
+    return NextResponse.json({ error: deleteError.message }, { status: 500 });
+  }
+
+  // Remove the file recorded in the database, never a path supplied by the client.
   const admin = createAdminClient();
-  await admin.storage.from(PHOTO_BUCKET).remove([body.filePath]);
+  await admin.storage.from(PHOTO_BUCKET).remove([photo.file_path]);
 
   const { data: album } = await supabase.from("albums").select("cover_photo_id").eq("id", albumId).single();
   if (album?.cover_photo_id === photo.id) {

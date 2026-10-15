@@ -64,13 +64,13 @@ export function UploadManager({ ownerId, albumId, initialPhotos }: Props) {
     }
   }
 
-  function deletePhoto(photoId: string, filePath: string) {
+  function deletePhoto(photoId: string) {
     startTransition(() => {
       void (async () => {
         const response = await fetch(`/api/albums/${albumId}/photos`, {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ photoId, filePath }),
+          body: JSON.stringify({ photoId }),
         });
 
         const payload = await response.json();
@@ -124,7 +124,7 @@ export function UploadManager({ ownerId, albumId, initialPhotos }: Props) {
                 type="button"
                 variant="ghost"
                 size="icon"
-                onClick={() => deletePhoto(photo.id, photo.file_path)}
+                onClick={() => deletePhoto(photo.id)}
                 disabled={isPending}
               >
                 {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}

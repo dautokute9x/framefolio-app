@@ -21,7 +21,7 @@ export default async function SelectedPage({
   if (!payload) notFound();
 
   const access = await canAccessAlbum(payload.album, shareToken);
-  if (payload.requiresPassword && !access) notFound();
+  if (!access) notFound();
 
   const cookieStore = await cookies();
   const selectionKey = cookieStore.get(`gallery-selection-${payload.album.id}`)?.value ?? "";

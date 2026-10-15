@@ -1,6 +1,7 @@
  "use server";
 
 import { redirect } from "next/navigation";
+import { serverEnv } from "@/lib/env.server";
 import { createClient } from "@/lib/supabase/server";
 
 export async function signInAction(formData: FormData) {
@@ -18,6 +19,10 @@ export async function signInAction(formData: FormData) {
 }
 
 export async function signUpAction(formData: FormData) {
+  if (!serverEnv.allowSignup) {
+    redirect("/login?message=Sign+up+is+disabled.");
+  }
+
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const fullName = String(formData.get("fullName") ?? "").trim();

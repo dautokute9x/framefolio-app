@@ -33,7 +33,15 @@ async function upsertClientFromForm(ownerId: string, formData: FormData, existin
   const supabase = await createClient();
 
   const explicitClientId = String(formData.get("clientId") ?? "").trim() || existingClientId || "";
-  if (explicitClientId) return explicitClientId;
+  if (explicitClientId) {
+    const { data: ownedClient } = await supabase
+      .from("clients")
+      .select("id")
+      .eq("id", explicitClientId)
+      .eq("owner_id", ownerId)
+      .maybeSingle();
+    if (ownedClient) return ownedClient.id as string;
+  }
 
   const name = String(formData.get("clientName") ?? "").trim();
   const email = String(formData.get("clientEmail") ?? "").trim() || null;

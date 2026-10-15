@@ -1,11 +1,13 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import {
   getAlbumAccessCookieName,
   getSelectionCookieName,
   getSelectionKey,
   verifyAlbumAccessCookieValue,
 } from "@/lib/album-access";
+import { readJsonBody } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 type GalleryAlbum = {
@@ -15,12 +17,25 @@ type GalleryAlbum = {
   password_hash: string | null;
 };
 
+const selectSchema = z.object({
+  albumId: z.string().uuid(),
+  photoId: z.string().uuid(),
+  selected: z.boolean(),
+  selectorName: z.string().max(200).nullish(),
+  selectorEmail: z.string().max(320).nullish(),
+  shareToken: z.string().max(100).nullish(),
+});
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params;
-  const body = await request.json();
+  const parsed = selectSchema.safeParse(await readJsonBody(request));
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  }
+  const body = parsed.data;
   const admin = createAdminClient();
 
   const result = await admin
@@ -47,11 +62,26 @@ export async function POST(
   const albumAccess =
     cookieStore.get(getAlbumAccessCookieName(album.id))?.value ?? null;
 
-  if (album.password_hash && !verifyAlbumAccessCookieValue(album.id, albumAccess)) {
+  if (
+    album.password_hash &&
+    !verifyAlbumAccessCookieValue(album.id, album.password_hash, albumAccess)
+  ) {
     return NextResponse.json(
       { error: "Password access required" },
       { status: 403 }
     );
+  }
+
+  const { data: photo } = await admin
+    .from("photos")
+    .select("id")
+    .eq("id", body.photoId)
+    .eq("album_id", album.id)
+    .eq("is_archived", false)
+    .maybeSingle();
+
+  if (!photo) {
+    return NextResponse.json({ error: "Photo not found" }, { status: 404 });
   }
 
   const selectionCookieName = getSelectionCookieName(album.id);
@@ -59,26 +89,31 @@ export async function POST(
     cookieStore.get(selectionCookieName)?.value ?? null;
   const selectionKey = getSelectionKey(existingSelectionKey);
 
-  if (body.selected) {
-    await admin.from("selections").upsert(
-      {
-        album_id: album.id,
-        photo_id: body.photoId,
-        selection_key: selectionKey,
-        selector_name: String(body.selectorName ?? "").trim() || null,
-        selector_email: String(body.selectorEmail ?? "").trim() || null,
-      } as any,
-      {
-        onConflict: "album_id,photo_id,selection_key",
-      }
+  const { error: writeError } = body.selected
+    ? await admin.from("selections").upsert(
+        {
+          album_id: album.id,
+          photo_id: body.photoId,
+          selection_key: selectionKey,
+          selector_name: (body.selectorName ?? "").trim() || null,
+          selector_email: (body.selectorEmail ?? "").trim() || null,
+        } as any,
+        {
+          onConflict: "album_id,photo_id,selection_key",
+        }
+      )
+    : await admin
+        .from("selections")
+        .delete()
+        .eq("album_id", album.id)
+        .eq("photo_id", body.photoId)
+        .eq("selection_key", selectionKey);
+
+  if (writeError) {
+    return NextResponse.json(
+      { error: "Unable to save selection" },
+      { status: 500 }
     );
-  } else {
-    await admin
-      .from("selections")
-      .delete()
-      .eq("album_id", album.id)
-      .eq("photo_id", body.photoId)
-      .eq("selection_key", selectionKey);
   }
 
   const { count } = await admin
