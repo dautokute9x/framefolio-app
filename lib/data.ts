@@ -285,13 +285,19 @@ export async function recordAlbumView(
   userAgent?: string | null,
   shareToken?: string | null
 ) {
-  const admin = createAdminClient();
-  await admin.from("album_views").insert({
-    album_id: albumId,
-    viewer_ip: viewerIp ?? null,
-    viewer_agent: userAgent ?? null,
-    share_token: shareToken ?? null,
-  } as any);
+  // View tracking is best-effort and must never break the gallery page.
+  try {
+    const admin = createAdminClient();
+    const { error } = await admin.from("album_views").insert({
+      album_id: albumId,
+      viewer_ip: viewerIp ?? null,
+      viewer_agent: userAgent ?? null,
+      share_token: shareToken ?? null,
+    } as any);
+    if (error) console.error("Failed to record album view", error.message);
+  } catch (error) {
+    console.error("Failed to record album view", error);
+  }
 }
 
 export async function getSelectedPhotosForSession(

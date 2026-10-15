@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { requireAdminProfile } from "@/lib/auth";
 import { slugify } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { JOB_STATUSES } from "@/lib/constants";
 import type { JobStatus } from "@/lib/types";
 
@@ -15,54 +16,79 @@ function parseStatus(value: string): JobStatus {
 }
 
 async function ensureUniqueSlug(baseSlug: string, albumId?: string) {
-  const supabase = await createClient();
-  let slug = baseSlug || `album-${Date.now()}`;
+  // Slugs are globally unique, so check across all owners (RLS would hide them).
+  const admin = createAdminClient();
+  const base = baseSlug || `album-${Date.now()}`;
+  let slug = base;
   let counter = 1;
 
   while (true) {
-    let query = supabase.from("albums").select("id").eq("slug", slug);
+    let query = admin.from("albums").select("id").eq("slug", slug);
     if (albumId) query = query.neq("id", albumId);
 
-    const { data } = await query.maybeSingle();
-    if (!data) return slug;
-    slug = `${baseSlug}-${counter++}`;
+    const { data } = await query.limit(1);
+    if (!data?.length) return slug;
+    slug = `${base}-${counter++}`;
   }
 }
 
-async function upsertClientFromForm(ownerId: string, formData: FormData, existingClientId?: string | null) {
+// Resolves the album's client from the form:
+// - a selected client is linked; if it is the album's current client, its
+//   details are updated from the client fields
+// - no selection plus a client name creates a new client
+// - no selection and no name unlinks the client
+async function upsertClientFromForm(
+  ownerId: string,
+  formData: FormData,
+  errorPath: string,
+  existingClientId?: string | null
+) {
   const supabase = await createClient();
 
-  const explicitClientId = String(formData.get("clientId") ?? "").trim() || existingClientId || "";
-  if (explicitClientId) {
+  const selectedClientId = String(formData.get("clientId") ?? "").trim();
+  const name = String(formData.get("clientName") ?? "").trim();
+  const details = {
+    email: String(formData.get("clientEmail") ?? "").trim() || null,
+    phone: String(formData.get("clientPhone") ?? "").trim() || null,
+    notes: String(formData.get("clientNotes") ?? "").trim() || null,
+  };
+
+  if (selectedClientId) {
     const { data: ownedClient } = await supabase
       .from("clients")
       .select("id")
-      .eq("id", explicitClientId)
+      .eq("id", selectedClientId)
       .eq("owner_id", ownerId)
       .maybeSingle();
-    if (ownedClient) return ownedClient.id as string;
-  }
+    if (!ownedClient) return null;
 
-  const name = String(formData.get("clientName") ?? "").trim();
-  const email = String(formData.get("clientEmail") ?? "").trim() || null;
-  const phone = String(formData.get("clientPhone") ?? "").trim() || null;
-  const notes = String(formData.get("clientNotes") ?? "").trim() || null;
+    if (selectedClientId === existingClientId && name) {
+      const { error } = await supabase
+        .from("clients")
+        .update({ name, ...details })
+        .eq("id", selectedClientId)
+        .eq("owner_id", ownerId);
+      if (error) {
+        redirect(`${errorPath}?message=${encodeURIComponent(`Unable to update client: ${error.message}`)}`);
+      }
+    }
+
+    return ownedClient.id as string;
+  }
 
   if (!name) return null;
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("clients")
-    .insert({
-      owner_id: ownerId,
-      name,
-      email,
-      phone,
-      notes,
-    })
+    .insert({ owner_id: ownerId, name, ...details })
     .select("id")
     .single();
 
-  return data?.id ?? null;
+  if (error || !data) {
+    redirect(`${errorPath}?message=${encodeURIComponent(`Unable to create client: ${error?.message ?? "unknown error"}`)}`);
+  }
+
+  return data.id as string;
 }
 
 function buildAlbumPayload(formData: FormData, shareToken?: string) {
@@ -89,8 +115,11 @@ export async function createAlbumAction(formData: FormData) {
   const profile = await requireAdminProfile();
   const supabase = await createClient();
   const payload = buildAlbumPayload(formData);
+  if (!payload.title) {
+    redirect("/dashboard/albums/new?message=Title+is+required");
+  }
   const slug = await ensureUniqueSlug(payload.slugSeed);
-  const clientId = await upsertClientFromForm(profile.id, formData);
+  const clientId = await upsertClientFromForm(profile.id, formData, "/dashboard/albums/new");
 
   const insertData = {
     owner_id: profile.id,
@@ -131,8 +160,13 @@ export async function updateAlbumAction(formData: FormData) {
   }
 
   const payload = buildAlbumPayload(formData, existing.share_token);
+  const editPath = `/dashboard/albums/${albumId}/edit`;
+  if (!payload.title) {
+    redirect(`${editPath}?message=Title+is+required`);
+  }
   const slug = await ensureUniqueSlug(payload.slugSeed, albumId);
-  const clientId = await upsertClientFromForm(profile.id, formData, existing.client_id);
+  const clientId = await upsertClientFromForm(profile.id, formData, editPath, existing.client_id);
+  const removePassword = formData.get("removePassword") === "on";
 
   const updateData = {
     title: payload.title,
@@ -142,7 +176,11 @@ export async function updateAlbumAction(formData: FormData) {
     visibility: payload.visibility,
     event_date: payload.event_date,
     client_id: clientId,
-    ...(payload.password ? { password_hash: await bcrypt.hash(payload.password, 10) } : {}),
+    ...(payload.password
+      ? { password_hash: await bcrypt.hash(payload.password, 10) }
+      : removePassword
+        ? { password_hash: null }
+        : {}),
   };
 
   const { error } = await supabase
@@ -166,11 +204,15 @@ export async function refreshShareLinkAction(formData: FormData) {
   const albumId = String(formData.get("albumId") ?? "").trim();
   const supabase = await createClient();
 
-  await supabase
+  const { error } = await supabase
     .from("albums")
     .update({ share_token: crypto.randomUUID() })
     .eq("id", albumId)
     .eq("owner_id", profile.id);
+
+  if (error) {
+    redirect(`/dashboard?message=${encodeURIComponent(error.message)}`);
+  }
 
   revalidatePath("/dashboard");
   redirect("/dashboard");

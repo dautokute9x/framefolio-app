@@ -26,6 +26,7 @@ export function UploadManager({ ownerId, albumId, initialPhotos }: Props) {
   async function handleFiles(fileList: FileList | null) {
     if (!fileList?.length) return;
     setStatus("Uploading photos...");
+    let nextSortOrder = Math.max(0, ...photos.map((photo) => photo.sort_order)) + 1;
 
     for (const file of Array.from(fileList)) {
       const ext = file.name.split(".").pop() ?? "jpg";
@@ -49,7 +50,7 @@ export function UploadManager({ ownerId, albumId, initialPhotos }: Props) {
           fileName: file.name,
           width: null,
           height: null,
-          sortOrder: photos.length + 1,
+          sortOrder: nextSortOrder++,
         }),
       });
 

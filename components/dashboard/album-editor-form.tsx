@@ -80,6 +80,12 @@ export function AlbumEditorForm({
               defaultValue=""
               placeholder={album?.password_hash ? "Password already set. Type new one to replace." : "Leave blank for none"}
             />
+            {album?.password_hash ? (
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <input type="checkbox" name="removePassword" className="h-4 w-4" />
+                Remove gallery password
+              </label>
+            ) : null}
           </div>
 
           <div className="space-y-2">
@@ -90,11 +96,16 @@ export function AlbumEditorForm({
               defaultValue={album?.client_id ?? ""}
               className="flex h-10 w-full rounded-xl border border-input bg-white px-3 py-2 text-sm"
             >
-              <option value="">Create / update from fields below</option>
+              <option value="">No client / create new from fields below</option>
               {clients.map((client) => (
                 <option key={client.id} value={client.id}>{client.name}</option>
               ))}
             </select>
+            {album?.client_id ? (
+              <p className="text-xs text-muted-foreground">
+                Editing the fields below updates the album&apos;s current client.
+              </p>
+            ) : null}
           </div>
 
           <div className="space-y-2">

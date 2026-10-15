@@ -377,5 +377,3 @@ These are used by the seed script so the app can open with realistic demo galler
 - download package delivery
 - watermark presets
 - per-client branded gallery theme
-#   f r a m e f o l i o - a p p  
- 
