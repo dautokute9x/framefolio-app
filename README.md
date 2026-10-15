@@ -2,6 +2,8 @@
 
 A simplified, production-oriented photography client gallery web app inspired by premium gallery products such as Framevis, but scoped for **one photographer**.
 
+> **Chạy miễn phí cho cá nhân/gia đình:** xem [docs/HUONG-DAN-MIEN-PHI.md](docs/HUONG-DAN-MIEN-PHI.md) (Vercel Hobby + Supabase Free + Cloudflare R2 10 GB).
+
 ## Stack
 
 - **Next.js App Router**
@@ -297,8 +299,12 @@ The seed script also prints the private share link in the terminal.
 
 ## Upload flow
 
+Photos are stored in Supabase Storage (default) or Cloudflare R2 (`STORAGE_DRIVER=r2`).
+Each photo row remembers its backend in `photos.storage_bucket` (`albums` or `r2`), so
+switching later keeps older photos working.
+
 1. Admin opens album upload page
-2. Browser uploads files directly to Supabase Storage
+2. Browser asks `POST /api/albums/[albumId]/upload-url` for storage paths (and, for R2, presigned PUT URLs), then uploads the original + a 2048px preview directly to storage
 3. App calls `POST /api/albums/[albumId]/photos`
 4. API stores metadata in the `photos` table
 5. Signed preview URLs are returned for immediate UI refresh
