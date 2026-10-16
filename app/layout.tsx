@@ -1,16 +1,14 @@
 import type { Metadata } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
-import { SiteFooter } from "@/components/site-footer";
-import { SiteHeader } from "@/components/site-header";
 
 const inter = Inter({
-  subsets: ["latin"],
+  subsets: ["latin", "vietnamese"],
   variable: "--font-inter",
 });
 
 const playfair = Playfair_Display({
-  subsets: ["latin"],
+  subsets: ["latin", "vietnamese"],
   variable: "--font-playfair",
 });
 
@@ -23,11 +21,9 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="vi">
       <body className={`${inter.variable} ${playfair.variable}`}>
-        <SiteHeader />
-        <main>{children}</main>
-        <SiteFooter />
+        {children}
       </body>
     </html>
   );

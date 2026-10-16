@@ -1,18 +1,47 @@
 import { NextResponse } from "next/server";
-import { requireAdminProfile } from "@/lib/auth";
+import { z } from "zod";
+import { getCurrentProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PHOTO_BUCKET } from "@/lib/constants";
+
+const postSchema = z.object({
+  filePath: z.string().min(1).max(500),
+  previewPath: z.string().min(1).max(500).nullish(),
+  fileName: z.string().min(1).max(255),
+  width: z.number().int().positive().nullish(),
+  height: z.number().int().positive().nullish(),
+});
+
+const deleteSchema = z.object({ photoId: z.string().uuid() });
+
+const unauthorized = () =>
+  NextResponse.json({ error: "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại" }, { status: 401 });
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ albumId: string }> }
 ) {
   const { albumId } = await params;
-  const profile = await requireAdminProfile();
+  // API routes must answer JSON; `requireAdminProfile()` redirects to an HTML page,
+  // which made `response.json()` throw in the upload UI when the session expired.
+  const profile = await getCurrentProfile();
+  if (!profile) return unauthorized();
+
+  const parsed = postSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Dữ liệu ảnh không hợp lệ" }, { status: 400 });
+  }
+  const body = parsed.data;
+
+  // Paths must live inside this photographer's album folder.
+  const prefix = `${profile.id}/${albumId}/`;
+  if (!body.filePath.startsWith(prefix) || (body.previewPath && !body.previewPath.startsWith(prefix))) {
+    return NextResponse.json({ error: "Đường dẫn ảnh không hợp lệ" }, { status: 400 });
+  }
+
   const supabase = await createClient();
   const admin = createAdminClient();
-  const body = await request.json();
 
   const { data: album } = await supabase
     .from("albums")
@@ -22,7 +51,7 @@ export async function POST(
     .maybeSingle();
 
   if (!album) {
-    return NextResponse.json({ error: "Album not found" }, { status: 404 });
+    return NextResponse.json({ error: "Không tìm thấy album" }, { status: 404 });
   }
 
   const { data: inserted, error } = await supabase
@@ -31,17 +60,24 @@ export async function POST(
       album_id: albumId,
       owner_id: profile.id,
       file_path: body.filePath,
+      preview_path: body.previewPath ?? null,
       file_name: body.fileName,
       storage_bucket: PHOTO_BUCKET,
       width: body.width ?? null,
       height: body.height ?? null,
-      sort_order: body.sortOrder ?? 0,
+      // sort_order is assigned by the `assign_photo_sort_order` trigger
+      // (migration 0002) under a per-album lock, so parallel uploads never collide.
+      sort_order: 0,
     })
     .select("*")
     .single();
 
   if (error || !inserted) {
-    return NextResponse.json({ error: error?.message ?? "Unable to register photo" }, { status: 400 });
+    // Do not leave orphaned files in storage when registration fails.
+    await admin.storage
+      .from(PHOTO_BUCKET)
+      .remove([body.filePath, ...(body.previewPath ? [body.previewPath] : [])]);
+    return NextResponse.json({ error: error?.message ?? "Không lưu được ảnh" }, { status: 400 });
   }
 
   if (!album.cover_photo_id) {
@@ -50,7 +86,7 @@ export async function POST(
 
   const { data: signed } = await admin.storage
     .from(PHOTO_BUCKET)
-    .createSignedUrl(inserted.file_path, 60 * 60);
+    .createSignedUrl(inserted.preview_path ?? inserted.file_path, 60 * 60 * 6);
 
   return NextResponse.json({
     photo: {
@@ -65,28 +101,42 @@ export async function DELETE(
   { params }: { params: Promise<{ albumId: string }> }
 ) {
   const { albumId } = await params;
-  const profile = await requireAdminProfile();
-  const supabase = await createClient();
-  const body = await request.json();
+  const profile = await getCurrentProfile();
+  if (!profile) return unauthorized();
 
+  const parsed = deleteSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Yêu cầu không hợp lệ" }, { status: 400 });
+  }
+
+  const supabase = await createClient();
   const { data: photo } = await supabase
     .from("photos")
     .select("*")
-    .eq("id", body.photoId)
+    .eq("id", parsed.data.photoId)
     .eq("album_id", albumId)
     .eq("owner_id", profile.id)
     .maybeSingle();
 
   if (!photo) {
-    return NextResponse.json({ error: "Photo not found" }, { status: 404 });
+    return NextResponse.json({ error: "Không tìm thấy ảnh" }, { status: 404 });
   }
 
-  await supabase.from("photos").delete().eq("id", photo.id);
+  const { error: deleteError } = await supabase.from("photos").delete().eq("id", photo.id);
+  if (deleteError) {
+    return NextResponse.json({ error: deleteError.message }, { status: 400 });
+  }
+
+  // Only ever delete the paths recorded in the database for this photo. The old
+  // code deleted whatever `filePath` the request body contained, using the
+  // service role, i.e. any file in the bucket.
   const admin = createAdminClient();
-  await admin.storage.from(PHOTO_BUCKET).remove([body.filePath]);
+  await admin.storage
+    .from(PHOTO_BUCKET)
+    .remove([photo.file_path, ...(photo.preview_path ? [photo.preview_path] : [])]);
 
   const { data: album } = await supabase.from("albums").select("cover_photo_id").eq("id", albumId).single();
-  if (album?.cover_photo_id === photo.id) {
+  if (!album?.cover_photo_id) {
     const { data: nextPhoto } = await supabase
       .from("photos")
       .select("id")

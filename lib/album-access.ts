@@ -1,7 +1,8 @@
+import "server-only";
 import crypto from "crypto";
 import { cookies } from "next/headers";
 import type { Album } from "@/lib/types";
-import { env } from "@/lib/env";
+import { serverEnv } from "@/lib/env.server";
 
 export function getAlbumAccessCookieName(albumId: string) {
   return `album-access-${albumId}`;
@@ -11,45 +12,70 @@ export function getSelectionCookieName(albumId: string) {
   return `gallery-selection-${albumId}`;
 }
 
-function signAlbumToken(albumId: string) {
+// The signature also covers the current password hash, so changing the
+// gallery password immediately invalidates every previously unlocked device.
+function signAlbumToken(albumId: string, passwordHash: string) {
   return crypto
-    .createHmac("sha256", env.albumCookieSecret)
-    .update(albumId)
+    .createHmac("sha256", serverEnv.albumCookieSecret)
+    .update(`${albumId}:${passwordHash}`)
     .digest("hex");
 }
 
-export function createAlbumAccessCookieValue(albumId: string) {
-  return `${albumId}.${signAlbumToken(albumId)}`;
+export function createAlbumAccessCookieValue(albumId: string, passwordHash: string) {
+  return `${albumId}.${signAlbumToken(albumId, passwordHash)}`;
 }
 
-export function verifyAlbumAccessCookieValue(albumId: string, value?: string | null) {
+export function verifyAlbumAccessCookieValue(
+  albumId: string,
+  passwordHash: string,
+  value?: string | null
+) {
   if (!value) return false;
   const [rawAlbumId, signature] = value.split(".");
   if (rawAlbumId !== albumId || !signature) return false;
 
-  const expected = signAlbumToken(albumId);
-  return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+  const expected = Buffer.from(signAlbumToken(albumId, passwordHash));
+  const received = Buffer.from(signature);
+  // timingSafeEqual throws when lengths differ (a tampered cookie used to
+  // crash the page with a 500), so compare lengths first.
+  if (received.length !== expected.length) return false;
+  return crypto.timingSafeEqual(received, expected);
 }
 
-export async function hasAlbumPasswordAccess(albumId: string) {
+export async function hasAlbumPasswordAccess(album: Pick<Album, "id" | "password_hash">) {
+  if (!album.password_hash) return true;
   const cookieStore = await cookies();
-  const value = cookieStore.get(getAlbumAccessCookieName(albumId))?.value;
-  return verifyAlbumAccessCookieValue(albumId, value);
+  const value = cookieStore.get(getAlbumAccessCookieName(album.id))?.value;
+  return verifyAlbumAccessCookieValue(album.id, album.password_hash, value);
 }
 
-export async function canAccessAlbum(album: Album, shareToken?: string | null) {
-  const passwordOk = album.password_hash ? await hasAlbumPasswordAccess(album.id) : true;
-
-  if (album.visibility === "public") {
-    return passwordOk;
-  }
-
-  const shareOk = !!shareToken && shareToken === album.share_token;
-  return shareOk && passwordOk;
+export function isShareTokenValid(
+  album: Pick<Album, "visibility" | "share_token">,
+  shareToken?: string | null
+) {
+  if (album.visibility === "public") return true;
+  return !!shareToken && shareToken === album.share_token;
 }
+
+export async function canAccessAlbum(
+  album: Pick<Album, "id" | "visibility" | "share_token" | "password_hash">,
+  shareToken?: string | null
+) {
+  if (!isShareTokenValid(album, shareToken)) return false;
+  return hasAlbumPasswordAccess(album);
+}
+
+const SELECTION_KEY_PATTERN = /^[0-9a-f-]{36}$/i;
 
 export function getSelectionKey(cookieValue?: string | null) {
-  return cookieValue && cookieValue.trim().length > 0
+  return cookieValue && SELECTION_KEY_PATTERN.test(cookieValue)
     ? cookieValue
     : crypto.randomUUID();
+}
+
+/** Album statuses in which the client may still change the selection. */
+export const SELECTION_OPEN_STATUSES = ["Draft", "Sent", "Client Selecting"] as const;
+
+export function isSelectionOpen(status: string) {
+  return (SELECTION_OPEN_STATUSES as readonly string[]).includes(status);
 }

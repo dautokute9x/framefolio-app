@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DEMO_EMAIL, DEMO_PASSWORD } from "@/lib/constants";
 import { signInAction, signUpAction } from "@/lib/server-actions/auth";
+import { serverEnv } from "@/lib/env.server";
 
 export default async function LoginPage({
   searchParams,
@@ -22,11 +23,13 @@ export default async function LoginPage({
           This starter is intentionally built for a single photographer, with a clean dashboard and a simple client-facing gallery flow.
         </p>
 
-        <div className="surface mt-8 p-5 text-sm">
-          <p className="font-medium">Demo account after seeding</p>
-          <p className="mt-2 text-muted-foreground">Email: {DEMO_EMAIL}</p>
-          <p className="text-muted-foreground">Password: {DEMO_PASSWORD}</p>
-        </div>
+        {serverEnv.showDemoLogin ? (
+          <div className="surface mt-8 p-5 text-sm">
+            <p className="font-medium">Demo account after seeding</p>
+            <p className="mt-2 text-muted-foreground">Email: {DEMO_EMAIL}</p>
+            <p className="text-muted-foreground">Password: {DEMO_PASSWORD}</p>
+          </div>
+        ) : null}
       </div>
 
       <div className="grid gap-6">
@@ -52,12 +55,13 @@ export default async function LoginPage({
           </CardContent>
         </Card>
 
+        {serverEnv.allowSignup ? (
         <Card>
           <CardContent className="space-y-5 p-8">
             <div>
               <h2 className="text-xl font-semibold">Create photographer account</h2>
               <p className="text-sm text-muted-foreground">
-                The first authenticated user becomes usable immediately after the profile trigger runs.
+                Only the first account (or an email pre-registered in supabase/seed.sql) becomes the photographer. Turn ALLOW_SIGNUP off afterwards.
               </p>
             </div>
 
@@ -69,6 +73,7 @@ export default async function LoginPage({
             </form>
           </CardContent>
         </Card>
+        ) : null}
       </div>
     </div>
   );

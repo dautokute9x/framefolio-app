@@ -1,157 +1,509 @@
- "use client";
+"use client";
 
-import { useMemo, useState } from "react";
-import Image from "next/image";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Check, Heart, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Check, ChevronLeft, ChevronRight, Heart, Loader2, Lock, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { PhotoWithUrl } from "@/lib/types";
+import type { GalleryPhoto, PublicAlbum } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
+type SessionInfo = {
+  selectorName: string;
+  selectorEmail: string;
+  note: string;
+  submittedAt: string | null;
+};
+
 export function ClientGallery({
-  slug,
-  albumId,
-  albumTitle,
+  album,
   photos,
   initiallySelected,
   shareToken,
+  selectionOpen,
+  initialSession,
 }: {
-  slug: string;
-  albumId: string;
-  albumTitle: string;
-  photos: PhotoWithUrl[];
+  album: PublicAlbum;
+  photos: GalleryPhoto[];
   initiallySelected: string[];
   shareToken?: string | null;
+  selectionOpen: boolean;
+  initialSession: SessionInfo | null;
 }) {
-  const [selected, setSelected] = useState<Set<string>>(new Set(initiallySelected));
-  const [selectorName, setSelectorName] = useState("");
-  const [selectorEmail, setSelectorEmail] = useState("");
-  const [savingIds, setSavingIds] = useState<string[]>([]);
+  const router = useRouter();
+  const [selected, setSelected] = useState<Set<string>>(() => new Set(initiallySelected));
+  const [pending, setPending] = useState<Set<string>>(() => new Set());
+  const [filter, setFilter] = useState<"all" | "selected">("all");
+  const [toast, setToast] = useState<string>("");
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const [submitOpen, setSubmitOpen] = useState(false);
+  const [locked, setLocked] = useState(!selectionOpen);
+  const [session, setSession] = useState<SessionInfo>(
+    initialSession ?? { selectorName: "", selectorEmail: "", note: "", submittedAt: null }
+  );
+  const pendingRef = useRef<Set<string>>(new Set());
+  const refreshedRef = useRef(false);
 
-  const count = useMemo(() => selected.size, [selected]);
+  const limit = album.selection_limit;
+  const count = selected.size;
+  const shareQuery = shareToken ? `?share=${encodeURIComponent(shareToken)}` : "";
 
-  async function toggle(photoId: string) {
-    setSavingIds((current) => [...current, photoId]);
+  const visiblePhotos = useMemo(
+    () => (filter === "selected" ? photos.filter((photo) => selected.has(photo.id)) : photos),
+    [filter, photos, selected]
+  );
 
-    const shouldSelect = !selected.has(photoId);
-    const response = await fetch(`/api/gallery/${slug}/select`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        albumId,
-        photoId,
-        selected: shouldSelect,
-        selectorName,
-        selectorEmail,
-        shareToken,
-      }),
-    });
+  const showToast = useCallback((message: string) => {
+    setToast(message);
+    window.setTimeout(() => setToast((current) => (current === message ? "" : current)), 4000);
+  }, []);
 
-    const payload = await response.json();
-    setSavingIds((current) => current.filter((id) => id !== photoId));
+  const toggle = useCallback(
+    async (photoId: string) => {
+      if (locked) {
+        showToast("Album đã chốt lựa chọn. Liên hệ nhiếp ảnh gia nếu cần thay đổi.");
+        return;
+      }
+      // Ignore taps while the previous request for this photo is still in flight
+      // (double-taps used to send conflicting requests).
+      if (pendingRef.current.has(photoId)) return;
 
-    if (!response.ok) {
-      alert(payload.error ?? "Unable to save selection");
-      return;
-    }
+      const shouldSelect = !selected.has(photoId);
+      if (shouldSelect && limit && selected.size >= limit) {
+        showToast(`Bạn chỉ được chọn tối đa ${limit} ảnh. Bỏ chọn bớt ảnh khác trước nhé.`);
+        return;
+      }
 
-    setSelected((current) => {
-      const next = new Set(current);
-      if (shouldSelect) next.add(photoId);
-      else next.delete(photoId);
-      return next;
-    });
-  }
+      pendingRef.current.add(photoId);
+      setPending(new Set(pendingRef.current));
+      // Optimistic update so the heart reacts instantly on slow mobile networks.
+      setSelected((current) => {
+        const next = new Set(current);
+        if (shouldSelect) next.add(photoId);
+        else next.delete(photoId);
+        return next;
+      });
+
+      try {
+        const response = await fetch(`/api/gallery/${album.slug}/select`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            photoId,
+            selected: shouldSelect,
+            shareToken,
+            selectorName: session.selectorName || undefined,
+            selectorEmail: session.selectorEmail || undefined,
+          }),
+        });
+        const payload = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          // Roll back the optimistic change.
+          setSelected((current) => {
+            const next = new Set(current);
+            if (shouldSelect) next.delete(photoId);
+            else next.add(photoId);
+            return next;
+          });
+          if (response.status === 423) setLocked(true);
+          showToast(payload.error ?? "Không lưu được lựa chọn, vui lòng thử lại.");
+        }
+      } catch {
+        setSelected((current) => {
+          const next = new Set(current);
+          if (shouldSelect) next.delete(photoId);
+          else next.add(photoId);
+          return next;
+        });
+        showToast("Mất kết nối. Lựa chọn chưa được lưu, vui lòng thử lại.");
+      } finally {
+        pendingRef.current.delete(photoId);
+        setPending(new Set(pendingRef.current));
+      }
+    },
+    [album.slug, limit, locked, selected, session.selectorEmail, session.selectorName, shareToken, showToast]
+  );
+
+  // Signed URLs expire; if an image fails (e.g. tab left open for hours) refresh once.
+  const handleImageError = useCallback(() => {
+    if (refreshedRef.current) return;
+    refreshedRef.current = true;
+    router.refresh();
+  }, [router]);
+
+  const viewerPhoto = viewerIndex !== null ? visiblePhotos[viewerIndex] : null;
+
+  useEffect(() => {
+    if (viewerIndex === null) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setViewerIndex(null);
+      if (event.key === "ArrowRight") setViewerIndex((i) => (i === null ? i : Math.min(i + 1, visiblePhotos.length - 1)));
+      if (event.key === "ArrowLeft") setViewerIndex((i) => (i === null ? i : Math.max(i - 1, 0)));
+    };
+    window.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [viewerIndex, visiblePhotos.length]);
+
+  const touchStartX = useRef<number | null>(null);
 
   return (
-    <div className="pb-28">
-      <section className="sticky top-0 z-30 border-b border-border/80 bg-background/90 px-4 py-4 backdrop-blur sm:px-6">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Client gallery</p>
-            <h1 className="mt-1 font-display text-3xl">{albumTitle}</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Tap images to shortlist favorites. Your selection is saved on this device.
+    <div className="pb-32">
+      <section className="sticky top-0 z-30 border-b border-border/80 bg-background/95 px-4 py-3 backdrop-blur sm:px-6">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-end justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Album chọn ảnh</p>
+            <h1 className="mt-1 truncate font-display text-2xl sm:text-3xl">{album.title}</h1>
+            <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+              {photos.length} ảnh · Chạm ♥ để chọn, chạm vào ảnh để xem lớn.
+              {limit ? ` Được chọn tối đa ${limit} ảnh.` : ""}
             </p>
           </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <input
-              type="text"
-              placeholder="Your name (optional)"
-              value={selectorName}
-              onChange={(event) => setSelectorName(event.target.value)}
-              className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
-            />
-            <input
-              type="email"
-              placeholder="Your email (optional)"
-              value={selectorEmail}
-              onChange={(event) => setSelectorEmail(event.target.value)}
-              className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
-            />
+          <div className="flex rounded-full border border-border bg-white p-1 text-sm" role="tablist">
+            {(["all", "selected"] as const).map((key) => (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={filter === key}
+                onClick={() => setFilter(key)}
+                className={cn(
+                  "rounded-full px-3 py-1.5 transition",
+                  filter === key ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+                )}
+              >
+                {key === "all" ? `Tất cả (${photos.length})` : `Đã chọn (${count})`}
+              </button>
+            ))}
           </div>
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-6xl gap-2 px-2 pt-3 sm:grid-cols-2 sm:gap-3 sm:px-6 lg:grid-cols-3">
-        {photos.map((photo, index) => {
+      {locked ? (
+        <div className="mx-auto mt-3 flex max-w-6xl items-start gap-3 rounded-2xl border border-border bg-secondary px-4 py-3 text-sm sm:mx-6 lg:mx-auto">
+          <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>
+            {session.submittedAt
+              ? "Bạn đã gửi lựa chọn cho nhiếp ảnh gia. Cảm ơn bạn!"
+              : "Album đã chốt lựa chọn."}{" "}
+            Nếu cần thay đổi, vui lòng liên hệ nhiếp ảnh gia để mở lại.
+          </p>
+        </div>
+      ) : null}
+
+      {photos.length === 0 ? (
+        <p className="mx-auto mt-10 max-w-md px-4 text-center text-sm text-muted-foreground">
+          Nhiếp ảnh gia chưa tải ảnh lên album này.
+        </p>
+      ) : null}
+
+      {filter === "selected" && count === 0 && photos.length > 0 ? (
+        <p className="mx-auto mt-10 max-w-md px-4 text-center text-sm text-muted-foreground">
+          Bạn chưa chọn ảnh nào.
+        </p>
+      ) : null}
+
+      <section className="mx-auto grid max-w-6xl grid-cols-2 gap-1.5 px-1.5 pt-3 sm:grid-cols-3 sm:gap-3 sm:px-6 lg:grid-cols-4">
+        {visiblePhotos.map((photo, index) => {
           const active = selected.has(photo.id);
-          const loading = savingIds.includes(photo.id);
+          const loading = pending.has(photo.id);
+          const number = photos.indexOf(photo) + 1;
 
           return (
-            <button
+            <div
               key={photo.id}
-              type="button"
+              data-photo-tile
               className={cn(
-                "group relative overflow-hidden rounded-2xl border bg-secondary text-left shadow-sm transition",
-                active ? "border-primary ring-2 ring-primary/20" : "border-transparent"
+                "group relative overflow-hidden rounded-xl bg-secondary shadow-sm transition",
+                active ? "ring-[3px] ring-primary" : ""
               )}
-              onClick={() => void toggle(photo.id)}
             >
-              <div className="relative aspect-[4/5]">
-                {photo.signedUrl ? (
-                  <Image
-                    src={photo.signedUrl}
-                    alt={`Photo ${index + 1}`}
-                    fill
-                    className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                    sizes="(max-width: 768px) 100vw, 33vw"
+              <button
+                type="button"
+                className="relative block aspect-[4/5] w-full"
+                onClick={() => setViewerIndex(index)}
+                aria-label={`Xem lớn ảnh ${number}`}
+              >
+                {photo.url ? (
+                  // Plain <img>: URLs are short-lived signed links to already
+                  // web-sized previews, so next/image optimisation adds no value
+                  // and would re-process every new token.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={photo.url}
+                    alt={`Ảnh ${number}`}
+                    loading={index < 6 ? "eager" : "lazy"}
+                    decoding="async"
+                    onError={handleImageError}
+                    onContextMenu={(event) => event.preventDefault()}
+                    draggable={false}
+                    className="absolute inset-0 h-full w-full select-none object-cover"
                   />
-                ) : null}
+                ) : (
+                  <span className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
+                    Không tải được ảnh
+                  </span>
+                )}
+                <span className="absolute left-2 top-2 rounded-full bg-background/85 px-2 py-0.5 text-[11px] font-medium">
+                  #{number}
+                </span>
+              </button>
 
-                <div className="absolute inset-x-3 top-3 flex items-center justify-between">
-                  <span className="rounded-full bg-background/85 px-2 py-1 text-xs font-medium">
-                    #{index + 1}
-                  </span>
-                  <span className={cn(
-                    "flex h-9 w-9 items-center justify-center rounded-full backdrop-blur",
-                    active ? "bg-primary text-primary-foreground" : "bg-background/80 text-foreground"
-                  )}>
-                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : active ? <Check className="h-4 w-4" /> : <Heart className="h-4 w-4" />}
-                  </span>
-                </div>
-              </div>
-            </button>
+              <button
+                type="button"
+                data-select-button
+                aria-pressed={active}
+                aria-label={active ? `Bỏ chọn ảnh ${number}` : `Chọn ảnh ${number}`}
+                onClick={() => void toggle(photo.id)}
+                className={cn(
+                  "absolute bottom-2 right-2 flex h-11 w-11 items-center justify-center rounded-full shadow backdrop-blur transition active:scale-95",
+                  active ? "bg-primary text-primary-foreground" : "bg-background/85 text-foreground"
+                )}
+              >
+                {loading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : active ? (
+                  <Check className="h-5 w-5" />
+                ) : (
+                  <Heart className="h-5 w-5" />
+                )}
+              </button>
+            </div>
           );
         })}
       </section>
 
+      {/* Bottom bar */}
       <div className="gallery-safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 px-4 py-3 backdrop-blur sm:px-6">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium">{count} photos selected</p>
-            <p className="text-xs text-muted-foreground">Selections sync to the photographer review page.</p>
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold" data-selected-count>
+              {count}
+              {limit ? ` / ${limit}` : ""} ảnh đã chọn
+            </p>
+            <p className="truncate text-xs text-muted-foreground">
+              {session.submittedAt ? "Đã gửi cho nhiếp ảnh gia" : "Lựa chọn được lưu tự động"}
+            </p>
           </div>
-          <Button asChild>
-            <Link href={`/gallery/${slug}/selected${shareToken ? `?share=${shareToken}` : ""}`}>
-              Review selected
-            </Link>
-          </Button>
+          <div className="flex shrink-0 gap-2">
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/gallery/${album.slug}/selected${shareQuery}`}>Xem lại</Link>
+            </Button>
+            {!locked ? (
+              <Button size="sm" disabled={count === 0} onClick={() => setSubmitOpen(true)}>
+                <Send className="mr-1.5 h-4 w-4" />
+                Gửi lựa chọn
+              </Button>
+            ) : null}
+          </div>
         </div>
       </div>
+
+      {toast ? (
+        <div
+          role="status"
+          className="fixed inset-x-4 bottom-24 z-50 mx-auto max-w-md rounded-xl bg-foreground px-4 py-3 text-center text-sm text-background shadow-lg"
+        >
+          {toast}
+        </div>
+      ) : null}
+
+      {/* Full-screen viewer */}
+      {viewerPhoto ? (
+        <div
+          className="fixed inset-0 z-50 flex flex-col bg-black/95 text-white"
+          role="dialog"
+          aria-modal="true"
+          onTouchStart={(event) => {
+            touchStartX.current = event.touches[0]?.clientX ?? null;
+          }}
+          onTouchEnd={(event) => {
+            if (touchStartX.current === null || viewerIndex === null) return;
+            const delta = (event.changedTouches[0]?.clientX ?? 0) - touchStartX.current;
+            if (delta < -50) setViewerIndex(Math.min(viewerIndex + 1, visiblePhotos.length - 1));
+            if (delta > 50) setViewerIndex(Math.max(viewerIndex - 1, 0));
+            touchStartX.current = null;
+          }}
+        >
+          <div className="flex items-center justify-between px-4 py-3 text-sm">
+            <span>
+              {viewerIndex! + 1} / {visiblePhotos.length}
+            </span>
+            <button type="button" aria-label="Đóng" onClick={() => setViewerIndex(null)} className="p-2">
+              <X className="h-6 w-6" />
+            </button>
+          </div>
+          <div className="relative flex flex-1 items-center justify-center overflow-hidden px-2">
+            {viewerPhoto.url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={viewerPhoto.url}
+                alt={viewerPhoto.file_name}
+                onContextMenu={(event) => event.preventDefault()}
+                draggable={false}
+                className="max-h-full max-w-full select-none object-contain"
+              />
+            ) : null}
+            <button
+              type="button"
+              aria-label="Ảnh trước"
+              disabled={viewerIndex === 0}
+              onClick={() => setViewerIndex((i) => (i === null ? i : Math.max(i - 1, 0)))}
+              className="absolute left-2 hidden rounded-full bg-white/10 p-2 disabled:opacity-30 sm:block"
+            >
+              <ChevronLeft className="h-7 w-7" />
+            </button>
+            <button
+              type="button"
+              aria-label="Ảnh sau"
+              disabled={viewerIndex === visiblePhotos.length - 1}
+              onClick={() => setViewerIndex((i) => (i === null ? i : Math.min(i + 1, visiblePhotos.length - 1)))}
+              className="absolute right-2 hidden rounded-full bg-white/10 p-2 disabled:opacity-30 sm:block"
+            >
+              <ChevronRight className="h-7 w-7" />
+            </button>
+          </div>
+          <div className="gallery-safe-bottom flex items-center justify-center px-4 py-4">
+            <button
+              type="button"
+              onClick={() => void toggle(viewerPhoto.id)}
+              className={cn(
+                "flex h-12 items-center gap-2 rounded-full px-6 text-sm font-medium transition active:scale-95",
+                selected.has(viewerPhoto.id) ? "bg-white text-black" : "bg-white/15 text-white"
+              )}
+            >
+              {pending.has(viewerPhoto.id) ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : selected.has(viewerPhoto.id) ? (
+                <Check className="h-5 w-5" />
+              ) : (
+                <Heart className="h-5 w-5" />
+              )}
+              {selected.has(viewerPhoto.id) ? "Đã chọn" : "Chọn ảnh này"}
+              <span className="text-xs opacity-70">
+                ({count}
+                {limit ? `/${limit}` : ""})
+              </span>
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {submitOpen ? (
+        <SubmitDialog
+          slug={album.slug}
+          shareToken={shareToken}
+          count={count}
+          limit={limit}
+          session={session}
+          onClose={() => setSubmitOpen(false)}
+          onSubmitted={(next) => {
+            setSession(next);
+            setLocked(true);
+            setSubmitOpen(false);
+            showToast("Đã gửi lựa chọn cho nhiếp ảnh gia. Cảm ơn bạn!");
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function SubmitDialog({
+  slug,
+  shareToken,
+  count,
+  limit,
+  session,
+  onClose,
+  onSubmitted,
+}: {
+  slug: string;
+  shareToken?: string | null;
+  count: number;
+  limit: number | null;
+  session: SessionInfo;
+  onClose: () => void;
+  onSubmitted: (session: SessionInfo) => void;
+}) {
+  const [name, setName] = useState(session.selectorName);
+  const [email, setEmail] = useState(session.selectorEmail);
+  const [note, setNote] = useState(session.note);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/gallery/${slug}/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shareToken, selectorName: name, selectorEmail: email, note }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setError(payload.error ?? "Không gửi được, vui lòng thử lại.");
+        return;
+      }
+      onSubmitted({ selectorName: name, selectorEmail: email, note, submittedAt: payload.submittedAt });
+    } catch {
+      setError("Mất kết nối, vui lòng thử lại.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" role="dialog" aria-modal="true">
+      <form onSubmit={submit} className="w-full max-w-md space-y-4 rounded-t-3xl bg-background p-6 shadow-xl sm:rounded-3xl">
+        <div>
+          <h2 className="font-display text-2xl">Gửi lựa chọn</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Bạn đã chọn <strong>{count}</strong>
+            {limit ? `/${limit}` : ""} ảnh. Sau khi gửi, lựa chọn sẽ được chốt để nhiếp ảnh gia bắt đầu chỉnh sửa.
+          </p>
+        </div>
+        <input
+          required
+          name="selectorName"
+          placeholder="Tên của bạn *"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          className="h-11 w-full rounded-xl border border-input bg-white px-3 text-sm"
+        />
+        <input
+          type="email"
+          name="selectorEmail"
+          placeholder="Email (không bắt buộc)"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          className="h-11 w-full rounded-xl border border-input bg-white px-3 text-sm"
+        />
+        <textarea
+          name="note"
+          placeholder="Ghi chú cho nhiếp ảnh gia (VD: ảnh #12 xoá giúp người phía sau)"
+          value={note}
+          onChange={(event) => setNote(event.target.value)}
+          rows={3}
+          className="w-full rounded-xl border border-input bg-white px-3 py-2 text-sm"
+        />
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
+            Để sau
+          </Button>
+          <Button type="submit" className="flex-1" disabled={saving || !name.trim()}>
+            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Xác nhận gửi
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }

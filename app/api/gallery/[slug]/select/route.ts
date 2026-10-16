@@ -1,77 +1,98 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import {
-  getAlbumAccessCookieName,
-  getSelectionCookieName,
-  getSelectionKey,
-  verifyAlbumAccessCookieValue,
-} from "@/lib/album-access";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { z } from "zod";
+import { isSelectionOpen } from "@/lib/album-access";
+import { guardGalleryRequest } from "@/lib/gallery-guard";
 
-type GalleryAlbum = {
-  id: string;
-  visibility: "public" | "private";
-  share_token: string | null;
-  password_hash: string | null;
-};
+const bodySchema = z.object({
+  photoId: z.string().uuid(),
+  selected: z.boolean(),
+  shareToken: z.string().max(100).nullish(),
+  selectorName: z.string().trim().max(120).optional(),
+  selectorEmail: z.string().trim().max(200).optional(),
+});
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params;
-  const body = await request.json();
-  const admin = createAdminClient();
-
-  const result = await admin
-    .from("albums")
-    .select("id, visibility, share_token, password_hash")
-    .eq("slug", slug)
-    .maybeSingle();
-
-  const album = result.data as GalleryAlbum | null;
-
-  if (!album) {
-    return NextResponse.json({ error: "Gallery not found" }, { status: 404 });
+  const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Yêu cầu không hợp lệ" }, { status: 400 });
   }
+  const body = parsed.data;
 
-  if (body.albumId !== album.id) {
-    return NextResponse.json({ error: "Album mismatch" }, { status: 400 });
-  }
+  const guard = await guardGalleryRequest(slug, body.shareToken);
+  if ("error" in guard) return guard.error;
+  const { album, selectionKey, persistSelectionKey, admin } = guard;
 
-  if (album.visibility === "private" && body.shareToken !== album.share_token) {
-    return NextResponse.json({ error: "Invalid share token" }, { status: 403 });
-  }
-
-  const cookieStore = await cookies();
-  const albumAccess =
-    cookieStore.get(getAlbumAccessCookieName(album.id))?.value ?? null;
-
-  if (album.password_hash && !verifyAlbumAccessCookieValue(album.id, albumAccess)) {
+  if (!isSelectionOpen(album.status)) {
     return NextResponse.json(
-      { error: "Password access required" },
-      { status: 403 }
+      { error: "Album đã chốt lựa chọn. Vui lòng liên hệ nhiếp ảnh gia nếu cần thay đổi." },
+      { status: 423 }
     );
   }
 
-  const selectionCookieName = getSelectionCookieName(album.id);
-  const existingSelectionKey =
-    cookieStore.get(selectionCookieName)?.value ?? null;
-  const selectionKey = getSelectionKey(existingSelectionKey);
+  // The photo must belong to this album (previously any photo id was accepted).
+  const { data: photo } = await admin
+    .from("photos")
+    .select("id")
+    .eq("id", body.photoId)
+    .eq("album_id", album.id)
+    .eq("is_archived", false)
+    .maybeSingle();
+
+  if (!photo) {
+    return NextResponse.json({ error: "Ảnh không thuộc album này" }, { status: 404 });
+  }
+
+  const countSelected = async () => {
+    const { count } = await admin
+      .from("selections")
+      .select("id", { head: true, count: "exact" })
+      .eq("album_id", album.id)
+      .eq("selection_key", selectionKey);
+    return count ?? 0;
+  };
+
+  const name = body.selectorName || null;
+  const email = body.selectorEmail || null;
 
   if (body.selected) {
-    await admin.from("selections").upsert(
+    const { error } = await admin.from("selections").upsert(
       {
         album_id: album.id,
         photo_id: body.photoId,
         selection_key: selectionKey,
-        selector_name: String(body.selectorName ?? "").trim() || null,
-        selector_email: String(body.selectorEmail ?? "").trim() || null,
-      } as any,
-      {
-        onConflict: "album_id,photo_id,selection_key",
-      }
+        selector_name: name,
+        selector_email: email,
+      },
+      { onConflict: "album_id,photo_id,selection_key" }
     );
+    if (error) {
+      return NextResponse.json({ error: "Không lưu được lựa chọn, thử lại sau" }, { status: 500 });
+    }
+
+    // Enforce the package limit after the write so concurrent taps cannot overshoot it.
+    if (album.selection_limit) {
+      const count = await countSelected();
+      if (count > album.selection_limit) {
+        await admin
+          .from("selections")
+          .delete()
+          .eq("album_id", album.id)
+          .eq("photo_id", body.photoId)
+          .eq("selection_key", selectionKey);
+        persistSelectionKey();
+        return NextResponse.json(
+          {
+            error: `Bạn chỉ được chọn tối đa ${album.selection_limit} ảnh. Bỏ chọn bớt ảnh khác trước nhé.`,
+            count: album.selection_limit,
+          },
+          { status: 409 }
+        );
+      }
+    }
   } else {
     await admin
       .from("selections")
@@ -81,19 +102,24 @@ export async function POST(
       .eq("selection_key", selectionKey);
   }
 
-  const { count } = await admin
-    .from("selections")
-    .select("*", { head: true, count: "exact" })
-    .eq("album_id", album.id)
-    .eq("selection_key", selectionKey);
+  // Keep one row per client device with their latest name/email.
+  await admin.from("selection_sessions").upsert(
+    {
+      album_id: album.id,
+      selection_key: selectionKey,
+      ...(name ? { selector_name: name } : {}),
+      ...(email ? { selector_email: email } : {}),
+    },
+    { onConflict: "album_id,selection_key" }
+  );
 
-  cookieStore.set(selectionCookieName, selectionKey, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 30,
-  });
+  // First pick on a sent album moves the job to "Client Selecting".
+  if (album.status === "Sent") {
+    await admin.from("albums").update({ status: "Client Selecting" }).eq("id", album.id);
+  }
 
-  return NextResponse.json({ ok: true, selectionKey, count: count ?? 0 });
+  const count = await countSelected();
+  persistSelectionKey();
+
+  return NextResponse.json({ ok: true, count });
 }

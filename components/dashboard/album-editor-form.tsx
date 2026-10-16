@@ -80,7 +80,38 @@ export function AlbumEditorForm({
               defaultValue=""
               placeholder={album?.password_hash ? "Password already set. Type new one to replace." : "Leave blank for none"}
             />
+            {album?.password_hash ? (
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <input type="checkbox" name="removePassword" className="h-4 w-4" />
+                Remove password (anyone with the link can open the gallery)
+              </label>
+            ) : null}
           </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="selectionLimit">Max photos the client can select</Label>
+            <Input
+              id="selectionLimit"
+              name="selectionLimit"
+              type="number"
+              min={1}
+              inputMode="numeric"
+              defaultValue={album?.selection_limit ?? ""}
+              placeholder="Leave blank for unlimited (e.g. 30 for a 30-photo package)"
+            />
+          </div>
+
+          {album ? (
+            <div className="space-y-2">
+              <Label>Gallery address</Label>
+              <p className="flex h-10 items-center rounded-xl border border-dashed border-input px-3 text-sm text-muted-foreground">
+                /gallery/{album.slug}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Stays the same when you rename the album, so links you already sent keep working.
+              </p>
+            </div>
+          ) : null}
 
           <div className="space-y-2">
             <Label htmlFor="clientId">Choose existing client</Label>
