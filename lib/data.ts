@@ -432,10 +432,17 @@ export async function getAlbumSelectionReview(albumId: string, ownerId: string) 
   };
 }
 
-export function buildShareLink(
+export function buildSharePath(
   album: Pick<Album, "slug" | "share_token" | "visibility">
 ) {
-  const base = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
   const query = album.visibility === "private" ? `?share=${album.share_token}` : "";
-  return `${base}/gallery/${album.slug}${query}`;
+  return `/gallery/${album.slug}${query}`;
+}
+
+/** Absolute link for the client. `origin` comes from getSiteOrigin(). */
+export function buildShareLink(
+  album: Pick<Album, "slug" | "share_token" | "visibility">,
+  origin: string
+) {
+  return `${origin.replace(/\/+$/, "")}${buildSharePath(album)}`;
 }
