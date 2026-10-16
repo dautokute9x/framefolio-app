@@ -41,7 +41,7 @@ describe("translations", () => {
       const source = fs.readFileSync(file, "utf8");
       const namespaces = [...source.matchAll(/(?:use|get)Translations\(\s*"([\w.]+)"\s*\)/g)].map((m) => m[1]);
       if (!namespaces.length) continue;
-      for (const match of source.matchAll(/\bt[A-Z]?\w*\(\s*"([\w.]+)"/g)) {
+      for (const match of source.matchAll(/\bt(?:[A-Z]\w*)?\(\s*"([\w.]+)"/g)) {
         const key = match[1];
         if (!namespaces.some((ns) => has(vi as Tree, `${ns}.${key}`))) {
           missing.push(`${path.relative(root, file)}: ${key} (namespaces: ${namespaces.join(", ")})`);

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Loader2, Lock } from "lucide-react";
 import { LocaleSwitcher } from "@/components/locale-switcher";
+import { ThemeToggle } from "@/components/gallery/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -50,8 +51,11 @@ export function GalleryPasswordGate({
   }
 
   return (
-    <main id="main" className="mx-auto flex min-h-[80vh] max-w-md flex-col items-center justify-center gap-4 px-4 py-10">
-      <LocaleSwitcher className="self-end" />
+    <div className="mx-auto flex min-h-[80vh] max-w-md flex-col items-center justify-center gap-4 px-4 py-10">
+      <div className="flex items-center gap-2 self-end">
+        <ThemeToggle />
+        <LocaleSwitcher />
+      </div>
       <Card className="w-full">
         <CardContent className="p-8">
           <form onSubmit={submit} className="space-y-5">
@@ -86,6 +90,6 @@ export function GalleryPasswordGate({
           </form>
         </CardContent>
       </Card>
-    </main>
+    </div>
   );
 }

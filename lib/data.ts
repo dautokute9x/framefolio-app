@@ -272,10 +272,17 @@ export function toPublicAlbum(album: GalleryAlbumRow): PublicAlbum {
   };
 }
 
-/** Photos for an album the caller has already verified access to. */
-export async function getGalleryPhotos(albumId: string): Promise<GalleryPhoto[]> {
+/** How many gallery photos get a signed URL in the first HTML; the rest load as the client scrolls. */
+export const GALLERY_INITIAL_SIGNED = 48;
+
+/**
+ * Photos for an album the caller has already verified access to. Only the
+ * first `signCount` carry a URL: signing (and shipping) a URL for every photo
+ * made 1000-photo albums ~2MB of HTML. The rest come from /api/gallery/[slug]/urls.
+ */
+export async function getGalleryPhotos(albumId: string, signCount = GALLERY_INITIAL_SIGNED): Promise<GalleryPhoto[]> {
   const admin = createAdminClient();
-  const { data: photos } = await admin
+  const { data } = await admin
     .from("photos")
     .select("*")
     .eq("album_id", albumId)
@@ -283,14 +290,32 @@ export async function getGalleryPhotos(albumId: string): Promise<GalleryPhoto[]>
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: true });
 
-  const signed = await createSignedPhotoUrls((photos ?? []) as Photo[]);
-  return signed.map((photo) => ({
+  const photos = (data ?? []) as Photo[];
+  const signed = await createSignedPhotoUrls(photos.slice(0, signCount));
+  const urls = new Map(signed.map((photo) => [photo.id, photo.signedUrl]));
+  return photos.map((photo) => ({
     id: photo.id,
     file_name: photo.file_name,
     width: photo.width,
     height: photo.height,
-    url: photo.signedUrl,
+    url: urls.get(photo.id) ?? null,
   }));
+}
+
+/** Signed preview URLs for some photos of one album (ids from other albums are ignored). */
+export async function signGalleryPhotos(albumId: string, ids: string[]): Promise<Record<string, string>> {
+  if (!ids.length) return {};
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("photos")
+    .select("*")
+    .eq("album_id", albumId)
+    .eq("is_archived", false)
+    .in("id", ids);
+  const signed = await createSignedPhotoUrls((data ?? []) as Photo[]);
+  return Object.fromEntries(
+    signed.filter((photo) => photo.signedUrl).map((photo) => [photo.id, photo.signedUrl as string])
+  );
 }
 
 export async function getSelectionSession(albumId: string, selectionKey: string) {

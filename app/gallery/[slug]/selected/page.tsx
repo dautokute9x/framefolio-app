@@ -4,6 +4,8 @@ import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Button } from "@/components/ui/button";
+import { LocaleSwitcher } from "@/components/locale-switcher";
+import { ThemeToggle } from "@/components/gallery/theme-toggle";
 import {
   getSelectionCookieName,
   hasAlbumPasswordAccess,
@@ -46,7 +48,11 @@ export default async function SelectedPage({
   ]);
 
   return (
-    <main id="main" className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+      <div className="mb-6 flex justify-end gap-2">
+        <ThemeToggle />
+        <LocaleSwitcher />
+      </div>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">{t("eyebrow")}</p>
@@ -90,6 +96,6 @@ export default async function SelectedPage({
           </div>
         ))}
       </div>
-    </main>
+    </div>
   );
 }

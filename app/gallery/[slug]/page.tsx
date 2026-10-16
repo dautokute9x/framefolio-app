@@ -85,7 +85,7 @@ export default async function GalleryPage({ params, searchParams }: PageProps) {
   ).catch(() => undefined);
 
   return (
-    <main id="main" className="min-h-screen bg-[#fbfaf7]">
+    <>
       <ClientGallery
         album={toPublicAlbum(album)}
         photos={photos}
@@ -103,6 +103,6 @@ export default async function GalleryPage({ params, searchParams }: PageProps) {
             : null
         }
       />
-    </main>
+    </>
   );
 }

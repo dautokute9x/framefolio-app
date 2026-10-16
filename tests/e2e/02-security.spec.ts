@@ -74,6 +74,28 @@ test("selecting a photo from another album is rejected", async ({ request }) => 
   expect(count).toBe(0);
 });
 
+test("photo URL endpoint follows the gallery access rules", async ({ request }) => {
+  const privateAlbum = await getAlbum(DEMO.privateSlug);
+  const publicAlbum = await getAlbum(DEMO.publicSlug);
+  const admin = serviceClient();
+  const { data: own } = await admin.from("photos").select("id").eq("album_id", publicAlbum.id).limit(1).single();
+  const { data: foreign } = await admin.from("photos").select("id").eq("album_id", privateAlbum.id).limit(1).single();
+
+  // Private album: no share token -> 404; token but no password -> 403.
+  const noToken = await request.post(`/api/gallery/${privateAlbum.slug}/urls`, { data: { ids: [foreign!.id] } });
+  expect(noToken.status()).toBe(404);
+  const noPassword = await request.post(`/api/gallery/${privateAlbum.slug}/urls`, {
+    data: { ids: [foreign!.id], shareToken: privateAlbum.share_token },
+  });
+  expect(noPassword.status()).toBe(403);
+
+  // Public album signs its own photos and silently ignores other albums' ids.
+  const response = await request.post(`/api/gallery/${publicAlbum.slug}/urls`, { data: { ids: [own!.id, foreign!.id] } });
+  expect(response.status()).toBe(200);
+  const { urls } = await response.json();
+  expect(Object.keys(urls)).toEqual([own!.id]);
+});
+
 test("private galleries need the share token", async ({ request }) => {
   const album = await getAlbum(DEMO.privateSlug);
   expect((await request.get(`/gallery/${album.slug}`)).status()).toBe(404);
