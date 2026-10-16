@@ -4,6 +4,43 @@
 
 :root {
   color-scheme: light;
+  --background: 38 20% 98%;
+  --foreground: 222 18% 14%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 18% 14%;
+  --primary: 222 32% 18%;
+  --primary-foreground: 38 20% 98%;
+  --secondary: 38 12% 93%;
+  --secondary-foreground: 222 18% 14%;
+  --muted: 38 12% 92%;
+  --muted-foreground: 220 10% 40%;
+  --border: 36 10% 86%;
+  --input: 36 10% 86%;
+  --accent: 25 70% 56%;
+  --ring: 25 70% 56%;
+  --destructive: 0 72% 51%;
+  --success: 150 40% 38%;
+}
+
+/* Dark theme for client galleries: photos read better on a dark surround. */
+.dark {
+  color-scheme: dark;
+  --background: 220 8% 7%;
+  --foreground: 38 15% 92%;
+  --card: 220 7% 11%;
+  --card-foreground: 38 15% 92%;
+  --primary: 38 20% 94%;
+  --primary-foreground: 222 18% 10%;
+  --secondary: 220 6% 15%;
+  --secondary-foreground: 38 15% 92%;
+  --muted: 220 6% 15%;
+  --muted-foreground: 220 6% 64%;
+  --border: 220 6% 20%;
+  --input: 220 6% 26%;
+  --accent: 25 70% 60%;
+  --ring: 25 70% 60%;
+  --destructive: 0 70% 62%;
+  --success: 150 40% 52%;
 }
 
 html,

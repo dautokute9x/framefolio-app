@@ -268,7 +268,9 @@
     "notePlaceholder": "Note for the photographer (e.g. photo #12: remove the person behind)",
     "later": "Not yet",
     "confirmSubmit": "Confirm & send",
-    "ogDescription": "View and pick your photos."
+    "ogDescription": "View and pick your photos.",
+    "toggleTheme": "Switch light / dark",
+    "keyboardHint": "← → next photo · Space to select · Esc to close"
   },
   "gate": {
     "wrong": "Wrong password",

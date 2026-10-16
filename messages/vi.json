@@ -268,7 +268,9 @@
     "notePlaceholder": "Ghi chú cho nhiếp ảnh gia (VD: ảnh #12 xoá giúp người phía sau)",
     "later": "Để sau",
     "confirmSubmit": "Xác nhận gửi",
-    "ogDescription": "Xem và chọn ảnh của bạn."
+    "ogDescription": "Xem và chọn ảnh của bạn.",
+    "toggleTheme": "Đổi nền sáng / tối",
+    "keyboardHint": "← → chuyển ảnh · Space để chọn · Esc để đóng"
   },
   "gate": {
     "wrong": "Mật khẩu chưa đúng",
