@@ -23,6 +23,7 @@ export type GuardedAlbum = Pick<
   | "selection_limit"
   | "archived_at"
   | "expires_at"
+  | "allow_download"
 >;
 
 /**

@@ -70,9 +70,15 @@ test.describe("client on a phone", () => {
     await buttons.nth(0).click();
     await buttons.nth(0).click();
     await buttons.nth(1).click();
-    await expect.poll(() => countSelections(album.id)).toBeGreaterThanOrEqual(1);
+    // Wait until every tap has reached the server and the UI agrees with the database.
+    await expect(page.locator("[data-select-button] .animate-spin")).toHaveCount(0);
+    await expect
+      .poll(async () => {
+        const ui = Number((await page.locator("[data-selected-count]").innerText()).match(/\d+/)?.[0]);
+        return ui >= 1 && ui === (await countSelections(album.id));
+      })
+      .toBe(true);
     const afterTaps = await countSelections(album.id);
-    await expect(page.locator("[data-selected-count]")).toContainText(String(afterTaps));
 
     // Full-screen viewer: select a third photo from there.
     await page.locator("[data-photo-tile] > button:first-child").nth(2).click();

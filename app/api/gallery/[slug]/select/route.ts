@@ -3,6 +3,7 @@ import { apiError } from "@/lib/api-error";
 import { z } from "zod";
 import { isSelectionOpen } from "@/lib/album-access";
 import { guardGalleryRequest } from "@/lib/gallery-guard";
+import { rateLimit } from "@/lib/rate-limit";
 
 const bodySchema = z.object({
   photoId: z.string().uuid(),
@@ -29,6 +30,9 @@ export async function POST(
 
   if (!isSelectionOpen(album.status)) {
     return await apiError("selectionLocked", 423);
+  }
+  if (!(await rateLimit(`select:${album.id}:${selectionKey}`, 600, 10 * 60))) {
+    return await apiError("tooManyRequests", 429);
   }
 
   // The photo must belong to this album (previously any photo id was accepted).

@@ -178,7 +178,9 @@
       "save": "Không lưu được album, vui lòng thử lại."
     },
     "expiresOn": "Link hết hạn sau ngày",
-    "expiresOnHint": "Để trống nếu link dùng mãi. Sau ngày này khách sẽ thấy thông báo album đã hết hạn."
+    "expiresOnHint": "Để trống nếu link dùng mãi. Sau ngày này khách sẽ thấy thông báo album đã hết hạn.",
+    "allowDownload": "Cho khách tải ảnh gốc",
+    "allowDownloadHint": "Hiện nút tải trong trình xem ảnh của khách, tải đúng file gốc chất lượng cao. Thường bật khi đã giao ảnh."
   },
   "album": {
     "back": "Tất cả album",
@@ -257,7 +259,8 @@
     "copyFileNames": "Copy tên file",
     "copyLightroom": "Copy cho Lightroom",
     "copied": "Đã copy",
-    "clientNote": "Ghi chú của khách"
+    "clientNote": "Ghi chú của khách",
+    "copyNotes": "Sao chép {count} ghi chú"
   },
   "gallery": {
     "eyebrow": "Album chọn ảnh",
@@ -302,7 +305,12 @@
     "ogDescription": "Xem và chọn ảnh của bạn.",
     "toggleTheme": "Đổi nền sáng / tối",
     "keyboardHint": "← → chuyển ảnh · Space để chọn · Esc để đóng",
-    "expired": "Album này đã hết hạn xem. Vui lòng liên hệ nhiếp ảnh gia nếu bạn cần mở lại."
+    "expired": "Album này đã hết hạn xem. Vui lòng liên hệ nhiếp ảnh gia nếu bạn cần mở lại.",
+    "addNote": "Thêm ghi chú cho ảnh này (VD: xoá người phía sau)",
+    "notePlaceholderPhoto": "Ghi chú cho ảnh này",
+    "saveNote": "Lưu",
+    "noteSaved": "Đã lưu ghi chú.",
+    "download": "Tải ảnh gốc"
   },
   "gate": {
     "wrong": "Mật khẩu chưa đúng",
@@ -341,7 +349,11 @@
     "invalidFile": "Chỉ nhận JPG, PNG, WEBP tối đa 50MB",
     "photoSaveFailed": "Không lưu được ảnh",
     "albumExpired": "Album đã hết hạn",
-    "deleteFailed": "Không xoá được, vui lòng thử lại"
+    "deleteFailed": "Không xoá được, vui lòng thử lại",
+    "tooManyAttempts": "Nhập sai quá nhiều lần. Vui lòng thử lại sau 15 phút.",
+    "tooManyRequests": "Bạn thao tác quá nhanh, vui lòng thử lại sau ít phút.",
+    "notSelected": "Hãy chọn ảnh này trước khi ghi chú.",
+    "downloadDisabled": "Album này chưa cho phép tải ảnh gốc."
   },
   "manage": {
     "title": "Quản lý album",

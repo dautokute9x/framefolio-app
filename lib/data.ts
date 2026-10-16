@@ -298,6 +298,7 @@ export function toPublicAlbum(album: GalleryAlbumRow): PublicAlbum {
     event_date: album.event_date,
     selection_limit: album.selection_limit,
     clients: album.clients ? { name: album.clients.name } : null,
+    allow_download: album.allow_download === true,
   };
 }
 
@@ -359,15 +360,17 @@ export async function getSelectionSession(albumId: string, selectionKey: string)
   return (data as SelectionSession | null) ?? null;
 }
 
-export async function getSelectionIds(albumId: string, selectionKey: string) {
+/** The visitor's picks: photo id → their note on it ("" when none). */
+export async function getClientSelections(albumId: string, selectionKey: string) {
   const admin = createAdminClient();
+  // select("*") keeps working on a database without the 0004 comment column.
   const { data } = await admin
     .from("selections")
-    .select("photo_id")
+    .select("*")
     .eq("album_id", albumId)
     .eq("selection_key", selectionKey);
 
-  return new Set((data ?? []).map((item) => item.photo_id));
+  return new Map(((data ?? []) as Selection[]).map((row) => [row.photo_id, row.comment ?? ""]));
 }
 
 export async function recordAlbumView(albumId: string, userAgent?: string | null, shareToken?: string | null) {
@@ -454,7 +457,7 @@ export async function getAlbumSelectionReview(albumId: string, ownerId: string) 
       session: SelectionSession | null;
       name: string | null;
       email: string | null;
-      photos: (Photo & { signedUrl: string | null; selectedAt: string })[];
+      photos: (Photo & { signedUrl: string | null; selectedAt: string; comment: string | null })[];
     }
   >();
 
@@ -472,6 +475,7 @@ export async function getAlbumSelectionReview(albumId: string, ownerId: string) 
       ...row.photos,
       signedUrl: urlMap.get(row.photo_id) ?? null,
       selectedAt: row.created_at,
+      comment: row.comment ?? null,
     });
     groups.set(row.selection_key, group);
   }

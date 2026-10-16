@@ -16,7 +16,7 @@ import {
   getAlbumCoverUrl,
   getGalleryAlbumBySlug,
   getGalleryPhotos,
-  getSelectionIds,
+  getClientSelections,
   getSelectionSession,
   recordAlbumView,
   toPublicAlbum,
@@ -76,9 +76,9 @@ export default async function GalleryPage({ params, searchParams }: PageProps) {
   const cookieStore = await cookies();
   const selectionKey = cookieStore.get(getSelectionCookieName(album.id))?.value ?? "";
 
-  const [photos, selectedIds, session] = await Promise.all([
+  const [photos, picks, session] = await Promise.all([
     getGalleryPhotos(album.id),
-    selectionKey ? getSelectionIds(album.id, selectionKey) : Promise.resolve(new Set<string>()),
+    selectionKey ? getClientSelections(album.id, selectionKey) : Promise.resolve(new Map<string, string>()),
     getSelectionSession(album.id, selectionKey),
   ]);
 
@@ -92,7 +92,8 @@ export default async function GalleryPage({ params, searchParams }: PageProps) {
       <ClientGallery
         album={toPublicAlbum(album)}
         photos={photos}
-        initiallySelected={Array.from(selectedIds)}
+        initiallySelected={Array.from(picks.keys())}
+        initialComments={Object.fromEntries([...picks].filter(([, comment]) => comment))}
         shareToken={shareToken}
         selectionOpen={isSelectionOpen(album.status)}
         initialSession={

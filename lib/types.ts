@@ -43,6 +43,8 @@ export type Album = {
   archived_at?: string | null;
   /** The client link stops working after this moment (0003). */
   expires_at?: string | null;
+  /** Clients may download full-resolution originals (0004). */
+  allow_download?: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -69,6 +71,8 @@ export type Selection = {
   selection_key: string;
   selector_name: string | null;
   selector_email: string | null;
+  /** Client's note on this photo (0004). */
+  comment?: string | null;
   created_at: string;
 };
 
@@ -88,7 +92,7 @@ export type SelectionSession = {
 export type PublicAlbum = Pick<
   Album,
   "id" | "title" | "slug" | "description" | "status" | "visibility" | "event_date" | "selection_limit"
-> & { clients: Pick<Client, "name"> | null };
+> & { clients: Pick<Client, "name"> | null; allow_download: boolean };
 
 export type AlbumCardData = Album & {
   clients: Pick<Client, "name" | "email"> | null;

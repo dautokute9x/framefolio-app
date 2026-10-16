@@ -58,7 +58,7 @@ components/          dashboard/, gallery/, marketing/, ui/ (shadcn)
 lib/                 data access, auth, storage (Supabase/R2), env, helpers
 supabase/
   config.toml        local Supabase for development and CI
-  migrations/        0001_initial.sql, 0002_selection_workflow.sql, 0003_album_lifecycle.sql
+  migrations/        0001_initial.sql, 0002_selection_workflow.sql, 0003_album_lifecycle.sql, 0004_notes_downloads_limits.sql
 scripts/dev/         demo data for local development only (never run in production)
 tests/
   unit/              Vitest
@@ -139,6 +139,7 @@ Open the Supabase SQL editor and run, in order:
 - `supabase/migrations/0001_initial.sql`
 - `supabase/migrations/0002_selection_workflow.sql` (previews, selection limit, client submit, single-admin sign-up, photo ordering)
 - `supabase/migrations/0003_album_lifecycle.sql` (archive, link expiry, drag-and-drop photo order; stops keeping visitor IPs)
+- `supabase/migrations/0004_notes_downloads_limits.sql` (per-photo client notes, original downloads, rate limiting)
 - (local development only) `scripts/dev/seed.sql`
 
 This creates:
@@ -377,3 +378,11 @@ These are used by the seed script so the app can open with realistic demo galler
 2. Photographer optionally sets **Max photos the client can select** (e.g. a 30-photo package) and sends the share link (+ password).
 3. Client opens the link on the phone, taps ♥ to pick (or opens a photo full-screen and picks there), filters "Đã chọn", and presses **Gửi lựa chọn** with name + note.
 4. The album moves to **Editing** and the selection is locked. The photographer sees each client's picks, note and submit time on *Review selections*, and can copy the file names (or a Lightroom filter string). **Mở lại cho khách chọn** unlocks it again.
+
+## Weekly database backup (optional)
+
+`.github/workflows/backup.yml` dumps the database every week, encrypts it with your
+passphrase and keeps it for 30 days under the repository's **Actions** tab. Add two
+repository secrets to turn it on: `SUPABASE_DB_URL` (Supabase → Connect → *Session
+pooler* connection string) and `BACKUP_PASSPHRASE`. Photos stay in Storage/R2 and are
+not part of the dump. To restore: `gpg --decrypt framefolio-*.sql.gz.gpg | gunzip > backup.sql`.

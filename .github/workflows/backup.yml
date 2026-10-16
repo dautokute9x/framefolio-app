@@ -1,0 +1,70 @@
+name: Weekly database backup
+
+# Dumps the database (albums, photos list, clients, selections, accounts) once
+# a week, encrypts it and keeps it for 30 days as a workflow artifact.
+# The repository is public, so the file is always encrypted with your passphrase.
+# Photos themselves stay in Supabase Storage / R2 and are not part of this file.
+#
+# Setup: GitHub repo -> Settings -> Secrets and variables -> Actions:
+#   SUPABASE_DB_URL    Supabase -> Connect -> "Session pooler" connection string
+#                      (postgresql://postgres.xxxx:PASSWORD@aws-...pooler.supabase.com:5432/postgres)
+#   BACKUP_PASSPHRASE  a long passphrase; keep it somewhere safe, it is needed to restore
+#
+# Restore: download the artifact, then
+#   gpg --decrypt framefolio-*.sql.gz.gpg | gunzip > backup.sql
+on:
+  schedule:
+    - cron: "41 19 * * 0" # Monday 02:41 in Vietnam
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+    steps:
+      - name: Check secrets
+        id: check
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ] || [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "::notice::Backup skipped: add the SUPABASE_DB_URL and BACKUP_PASSPHRASE secrets to enable it."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install pg_dump 17
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17
+
+      - name: Dump and encrypt
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          set -o pipefail
+          FILE="framefolio-$(date -u +%Y%m%d).sql.gz.gpg"
+          PG_DUMP=/usr/lib/postgresql/17/bin/pg_dump
+          # Everything in public (schema + data), then the login accounts' rows.
+          { "$PG_DUMP" "$SUPABASE_DB_URL" --schema=public --no-owner --no-privileges --quote-all-identifiers
+            "$PG_DUMP" "$SUPABASE_DB_URL" --data-only --table=auth.users --no-owner --no-privileges --quote-all-identifiers
+          } | gzip -9 \
+            | gpg --batch --yes --symmetric --cipher-algo AES256 \
+                  --passphrase-fd 3 --output "$FILE" 3<<<"$BACKUP_PASSPHRASE"
+          echo "FILE=$FILE" >> "$GITHUB_ENV"
+          ls -lh "$FILE"
+
+      - uses: actions/upload-artifact@v4
+        if: steps.check.outputs.ready == 'true'
+        with:
+          name: ${{ env.FILE }}
+          path: ${{ env.FILE }}
+          retention-days: 30
+          if-no-files-found: error

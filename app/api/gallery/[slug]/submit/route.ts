@@ -4,6 +4,7 @@ import { z } from "zod";
 import { isSelectionOpen } from "@/lib/album-access";
 import { guardGalleryRequest } from "@/lib/gallery-guard";
 import { notifySelectionSubmitted } from "@/lib/notify";
+import { rateLimit, visitorKey } from "@/lib/rate-limit";
 import { getSiteOrigin } from "@/lib/site-url";
 
 const bodySchema = z.object({
@@ -44,6 +45,9 @@ export async function POST(
 
   if (!isSelectionOpen(album.status)) {
     return await apiError("alreadySubmitted", 423);
+  }
+  if (!(await rateLimit(`submit:${album.id}:${await visitorKey()}`, 20, 60 * 60))) {
+    return await apiError("tooManyRequests", 429);
   }
 
   const { count } = await admin

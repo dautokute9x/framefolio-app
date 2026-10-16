@@ -178,7 +178,9 @@
       "save": "Could not save the album, please try again."
     },
     "expiresOn": "Link expires after",
-    "expiresOnHint": "Leave empty to keep the link working. After this day the client sees that the album has expired."
+    "expiresOnHint": "Leave empty to keep the link working. After this day the client sees that the album has expired.",
+    "allowDownload": "Let the client download originals",
+    "allowDownloadHint": "Shows a download button in the client's photo viewer for the full-quality original. Usually turned on at delivery."
   },
   "album": {
     "back": "All albums",
@@ -257,7 +259,8 @@
     "copyFileNames": "Copy file names",
     "copyLightroom": "Copy for Lightroom",
     "copied": "Copied",
-    "clientNote": "Client note"
+    "clientNote": "Client note",
+    "copyNotes": "Copy {count, plural, one {# note} other {# notes}}"
   },
   "gallery": {
     "eyebrow": "Photo selection",
@@ -302,7 +305,12 @@
     "ogDescription": "View and pick your photos.",
     "toggleTheme": "Switch light / dark",
     "keyboardHint": "← → next photo · Space to select · Esc to close",
-    "expired": "This album has expired. Please contact the photographer if you need it reopened."
+    "expired": "This album has expired. Please contact the photographer if you need it reopened.",
+    "addNote": "Add a note for this photo (e.g. remove the person behind)",
+    "notePlaceholderPhoto": "Note for this photo",
+    "saveNote": "Save",
+    "noteSaved": "Note saved.",
+    "download": "Download original"
   },
   "gate": {
     "wrong": "Wrong password",
@@ -341,7 +349,11 @@
     "invalidFile": "Only JPG, PNG, WEBP up to 50MB",
     "photoSaveFailed": "Could not save the photo",
     "albumExpired": "This album has expired",
-    "deleteFailed": "Could not delete, please try again"
+    "deleteFailed": "Could not delete, please try again",
+    "tooManyAttempts": "Too many wrong attempts. Please try again in 15 minutes.",
+    "tooManyRequests": "Too many requests, please try again in a few minutes.",
+    "notSelected": "Select this photo before adding a note.",
+    "downloadDisabled": "Downloads are not enabled for this album."
   },
   "manage": {
     "title": "Manage album",
