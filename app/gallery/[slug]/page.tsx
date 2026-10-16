@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { GalleryPasswordGate } from "@/components/gallery/gallery-password-gate";
 import { ClientGallery } from "@/components/gallery/client-gallery";
 import {
@@ -10,6 +11,7 @@ import {
   isShareTokenValid,
 } from "@/lib/album-access";
 import {
+  getAlbumCoverUrl,
   getGalleryAlbumBySlug,
   getGalleryPhotos,
   getSelectionIds,
@@ -18,18 +20,37 @@ import {
   toPublicAlbum,
 } from "@/lib/data";
 
-// Client galleries are private by nature: keep them out of search engines.
-export const metadata: Metadata = {
-  robots: { index: false, follow: false },
-};
-
-export default async function GalleryPage({
-  params,
-  searchParams,
-}: {
+type PageProps = {
   params: Promise<{ slug: string }>;
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
-}) {
+};
+
+// Client galleries are private by nature: keep them out of search engines,
+// but give link previews (Zalo, Messenger…) the album title and cover.
+export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const query = (await searchParams) ?? {};
+  const shareToken = typeof query.share === "string" ? query.share : null;
+  const [t, album] = await Promise.all([getTranslations("gallery"), getGalleryAlbumBySlug(slug)]);
+  const base: Metadata = { robots: { index: false, follow: false } };
+  if (!album || !isShareTokenValid(album, shareToken)) return { ...base, title: t("eyebrow") };
+
+  // Password-protected albums never reveal a photo in the preview.
+  const cover = album.password_hash ? null : await getAlbumCoverUrl(album);
+  return {
+    ...base,
+    title: album.title,
+    description: t("ogDescription"),
+    openGraph: {
+      title: album.title,
+      description: t("ogDescription"),
+      type: "website",
+      ...(cover ? { images: [{ url: cover }] } : {}),
+    },
+  };
+}
+
+export default async function GalleryPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
   const query = (await searchParams) ?? {};
   const shareToken = typeof query.share === "string" ? query.share : null;
@@ -64,7 +85,7 @@ export default async function GalleryPage({
   ).catch(() => undefined);
 
   return (
-    <div className="min-h-screen bg-[#fbfaf7]">
+    <main id="main" className="min-h-screen bg-[#fbfaf7]">
       <ClientGallery
         album={toPublicAlbum(album)}
         photos={photos}
@@ -82,6 +103,6 @@ export default async function GalleryPage({
             : null
         }
       />
-    </div>
+    </main>
   );
 }

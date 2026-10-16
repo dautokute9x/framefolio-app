@@ -1,17 +1,18 @@
 import { NextResponse } from "next/server";
+import { apiError } from "@/lib/api-error";
 import { z } from "zod";
 import { isSelectionOpen } from "@/lib/album-access";
 import { guardGalleryRequest } from "@/lib/gallery-guard";
 
 const bodySchema = z.object({
   shareToken: z.string().max(100).nullish(),
-  selectorName: z.string().trim().min(1, "Vui lòng nhập tên").max(120),
+  selectorName: z.string().trim().min(1).max(120),
   selectorEmail: z
     .string()
     .trim()
     .max(200)
     .optional()
-    .refine((value) => !value || z.string().email().safeParse(value).success, "Email không hợp lệ"),
+    .refine((value) => !value || z.string().email().safeParse(value).success),
   note: z.string().trim().max(2000).optional(),
 });
 
@@ -27,9 +28,10 @@ export async function POST(
   const { slug } = await params;
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Yêu cầu không hợp lệ" },
-      { status: 400 }
+    const field = parsed.error.issues[0]?.path[0];
+    return await apiError(
+      field === "selectorName" ? "nameRequired" : field === "selectorEmail" ? "invalidEmail" : "invalidRequest",
+      400
     );
   }
   const body = parsed.data;
@@ -39,7 +41,7 @@ export async function POST(
   const { album, selectionKey, persistSelectionKey, admin } = guard;
 
   if (!isSelectionOpen(album.status)) {
-    return NextResponse.json({ error: "Album đã được chốt trước đó." }, { status: 423 });
+    return await apiError("alreadySubmitted", 423);
   }
 
   const { count } = await admin
@@ -49,13 +51,10 @@ export async function POST(
     .eq("selection_key", selectionKey);
 
   if (!count) {
-    return NextResponse.json({ error: "Bạn chưa chọn ảnh nào." }, { status: 400 });
+    return await apiError("nothingSelected", 400);
   }
   if (album.selection_limit && count > album.selection_limit) {
-    return NextResponse.json(
-      { error: `Bạn đang chọn ${count} ảnh, vượt giới hạn ${album.selection_limit} ảnh.` },
-      { status: 409 }
-    );
+    return await apiError("overLimit", 409, { count, limit: album.selection_limit });
   }
 
   const submittedAt = new Date().toISOString();
@@ -71,7 +70,7 @@ export async function POST(
     { onConflict: "album_id,selection_key" }
   );
   if (error) {
-    return NextResponse.json({ error: "Không gửi được, vui lòng thử lại" }, { status: 500 });
+    return await apiError("submitFailed", 500);
   }
 
   // Keep the name on every selection row as well (shown in older views/exports).

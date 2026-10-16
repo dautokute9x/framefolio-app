@@ -1,158 +1,159 @@
+import { getTranslations } from "next-intl/server";
+import { Globe, Lock } from "lucide-react";
+import { STATUS_KEY } from "@/components/album-status-badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { JOB_STATUSES } from "@/lib/constants";
 import type { Album, Client } from "@/lib/types";
 
-export function AlbumEditorForm({
+function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
+      <h2 className="font-semibold">{title}</h2>
+      {hint ? <p className="mt-1 text-sm text-muted-foreground">{hint}</p> : null}
+      <div className="mt-5 grid gap-5 sm:grid-cols-2">{children}</div>
+    </section>
+  );
+}
+
+function Field({ id, label, hint, full, children }: { id: string; label: string; hint?: string; full?: boolean; children: React.ReactNode }) {
+  return (
+    <div className={full ? "space-y-1.5 sm:col-span-2" : "space-y-1.5"}>
+      <Label htmlFor={id}>{label}</Label>
+      {children}
+      {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
+    </div>
+  );
+}
+
+export async function AlbumEditorForm({
   action,
   album,
   clients,
-  submitLabel,
+  error,
 }: {
   action: (formData: FormData) => Promise<void>;
   album?: (Album & { clients?: Client | null }) | null;
   clients: Client[];
-  submitLabel: string;
+  error?: string;
 }) {
+  const [t, tStatus] = await Promise.all([getTranslations("albumForm"), getTranslations("status")]);
+  const visibility = album?.visibility ?? "private";
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{album ? "Edit album" : "Create album"}</CardTitle>
-        <CardDescription>
-          Manage a client job, control access, and generate a share-ready gallery link.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form action={action} className="grid gap-6 lg:grid-cols-2">
-          {album ? <input type="hidden" name="albumId" value={album.id} /> : null}
+    <form action={action} className="space-y-5 pb-24 md:pb-0">
+      {album ? <input type="hidden" name="albumId" value={album.id} /> : null}
+      {error ? (
+        <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          {error === "title" ? t("errors.title") : t("errors.save")}
+        </p>
+      ) : null}
 
-          <div className="space-y-2 lg:col-span-2">
-            <Label htmlFor="title">Album title</Label>
-            <Input id="title" name="title" defaultValue={album?.title ?? ""} required />
-          </div>
+      <Section title={t("sections.info")}>
+        <Field id="title" label={t("title")} full>
+          <Input id="title" name="title" defaultValue={album?.title ?? ""} placeholder={t("titlePlaceholder")} required />
+        </Field>
+        <Field id="eventDate" label={t("eventDate")}>
+          <Input id="eventDate" name="eventDate" type="date" defaultValue={album?.event_date ?? ""} />
+        </Field>
+        {album ? (
+          <Field id="slug" label={t("address")} hint={t("addressHint")}>
+            <p id="slug" className="flex h-11 items-center truncate rounded-xl border border-dashed border-input px-3 text-sm text-muted-foreground">
+              /gallery/{album.slug}
+            </p>
+          </Field>
+        ) : null}
+        <Field id="description" label={t("description")} full>
+          <Textarea id="description" name="description" defaultValue={album?.description ?? ""} rows={3} />
+        </Field>
+      </Section>
 
-          <div className="space-y-2 lg:col-span-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea id="description" name="description" defaultValue={album?.description ?? ""} />
-          </div>
+      <Section title={t("sections.client")} hint={t("clientHint")}>
+        <Field id="clientId" label={t("existingClient")} full>
+          <Select id="clientId" name="clientId" defaultValue={album?.client_id ?? ""}>
+            <option value="">{t("newClientOption")}</option>
+            {clients.map((client) => (
+              <option key={client.id} value={client.id}>
+                {client.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field id="clientName" label={t("clientName")}>
+          <Input id="clientName" name="clientName" defaultValue={album?.clients?.name ?? ""} />
+        </Field>
+        <Field id="clientPhone" label={t("clientPhone")}>
+          <Input id="clientPhone" name="clientPhone" type="tel" defaultValue={album?.clients?.phone ?? ""} />
+        </Field>
+        <Field id="clientEmail" label={t("clientEmail")}>
+          <Input id="clientEmail" name="clientEmail" type="email" defaultValue={album?.clients?.email ?? ""} />
+        </Field>
+        <Field id="clientNotes" label={t("clientNotes")}>
+          <Input id="clientNotes" name="clientNotes" defaultValue={album?.clients?.notes ?? ""} />
+        </Field>
+      </Section>
 
-          <div className="space-y-2">
-            <Label htmlFor="status">Job status</Label>
-            <select
-              id="status"
-              name="status"
-              defaultValue={album?.status ?? "Draft"}
-              className="flex h-10 w-full rounded-xl border border-input bg-white px-3 py-2 text-sm"
-            >
-              {JOB_STATUSES.map((status) => (
-                <option key={status} value={status}>{status}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="visibility">Visibility</Label>
-            <select
-              id="visibility"
-              name="visibility"
-              defaultValue={album?.visibility ?? "private"}
-              className="flex h-10 w-full rounded-xl border border-input bg-white px-3 py-2 text-sm"
-            >
-              <option value="public">Public</option>
-              <option value="private">Private</option>
-            </select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="eventDate">Event date</Label>
-            <Input id="eventDate" name="eventDate" type="date" defaultValue={album?.event_date ?? ""} />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="galleryPassword">Optional gallery password</Label>
-            <Input
-              id="galleryPassword"
-              name="galleryPassword"
-              type="text"
-              defaultValue=""
-              placeholder={album?.password_hash ? "Password already set. Type new one to replace." : "Leave blank for none"}
-            />
-            {album?.password_hash ? (
-              <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                <input type="checkbox" name="removePassword" className="h-4 w-4" />
-                Remove password (anyone with the link can open the gallery)
+      <Section title={t("sections.access")}>
+        <fieldset className="space-y-2 sm:col-span-2">
+          <legend className="text-sm font-medium">{t("visibility")}</legend>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {(["private", "public"] as const).map((value) => (
+              <label
+                key={value}
+                className="flex cursor-pointer items-start gap-3 rounded-xl border border-border p-4 has-[:checked]:border-primary has-[:checked]:ring-1 has-[:checked]:ring-primary"
+              >
+                <input type="radio" name="visibility" value={value} defaultChecked={visibility === value} className="mt-1 h-4 w-4 accent-[hsl(222_32%_18%)]" />
+                <span>
+                  <span className="flex items-center gap-1.5 font-medium">
+                    {value === "private" ? <Lock className="h-4 w-4" /> : <Globe className="h-4 w-4" />}
+                    {t(`visibilityOptions.${value}.label`)}
+                  </span>
+                  <span className="mt-0.5 block text-sm text-muted-foreground">{t(`visibilityOptions.${value}.hint`)}</span>
+                </span>
               </label>
-            ) : null}
+            ))}
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="selectionLimit">Max photos the client can select</Label>
-            <Input
-              id="selectionLimit"
-              name="selectionLimit"
-              type="number"
-              min={1}
-              inputMode="numeric"
-              defaultValue={album?.selection_limit ?? ""}
-              placeholder="Leave blank for unlimited (e.g. 30 for a 30-photo package)"
-            />
-          </div>
-
-          {album ? (
-            <div className="space-y-2">
-              <Label>Gallery address</Label>
-              <p className="flex h-10 items-center rounded-xl border border-dashed border-input px-3 text-sm text-muted-foreground">
-                /gallery/{album.slug}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Stays the same when you rename the album, so links you already sent keep working.
-              </p>
-            </div>
+        </fieldset>
+        <Field id="galleryPassword" label={t("password")} hint={album?.password_hash ? t("passwordSetHint") : t("passwordHint")}>
+          <Input id="galleryPassword" name="galleryPassword" type="text" autoComplete="off" defaultValue="" />
+          {album?.password_hash ? (
+            <label className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+              <input type="checkbox" name="removePassword" className="h-4 w-4" />
+              {t("removePassword")}
+            </label>
           ) : null}
+        </Field>
+        <Field id="selectionLimit" label={t("selectionLimit")} hint={t("selectionLimitHint")}>
+          <Input id="selectionLimit" name="selectionLimit" type="number" min={1} inputMode="numeric" defaultValue={album?.selection_limit ?? ""} />
+        </Field>
+      </Section>
 
-          <div className="space-y-2">
-            <Label htmlFor="clientId">Choose existing client</Label>
-            <select
-              id="clientId"
-              name="clientId"
-              defaultValue={album?.client_id ?? ""}
-              className="flex h-10 w-full rounded-xl border border-input bg-white px-3 py-2 text-sm"
-            >
-              <option value="">Create / update from fields below</option>
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>{client.name}</option>
+      {album ? (
+        <Section title={t("sections.status")} hint={t("statusHint")}>
+          <Field id="status" label={t("status")}>
+            <Select id="status" name="status" defaultValue={album.status}>
+              {JOB_STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {tStatus(STATUS_KEY[status])}
+                </option>
               ))}
-            </select>
-          </div>
+            </Select>
+          </Field>
+        </Section>
+      ) : (
+        <input type="hidden" name="status" value="Draft" />
+      )}
 
-          <div className="space-y-2">
-            <Label htmlFor="clientName">Client name</Label>
-            <Input id="clientName" name="clientName" defaultValue={album?.clients?.name ?? ""} />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="clientEmail">Client email</Label>
-            <Input id="clientEmail" name="clientEmail" type="email" defaultValue={album?.clients?.email ?? ""} />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="clientPhone">Client phone</Label>
-            <Input id="clientPhone" name="clientPhone" defaultValue={album?.clients?.phone ?? ""} />
-          </div>
-
-          <div className="space-y-2 lg:col-span-2">
-            <Label htmlFor="clientNotes">Client notes</Label>
-            <Textarea id="clientNotes" name="clientNotes" defaultValue={album?.clients?.notes ?? ""} />
-          </div>
-
-          <div className="lg:col-span-2 flex items-center justify-end">
-            <Button type="submit" size="lg">{submitLabel}</Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
+      <div className="fixed inset-x-0 bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-30 border-t border-border bg-background/95 px-4 py-3 backdrop-blur md:static md:border-0 md:bg-transparent md:p-0">
+        <div className="mx-auto flex max-w-6xl justify-end">
+          <Button type="submit" size="lg" className="w-full md:w-auto">
+            {album ? t("save") : t("create")}
+          </Button>
+        </div>
+      </div>
+    </form>
   );
 }

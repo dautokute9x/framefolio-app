@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Loader2, Lock } from "lucide-react";
+import { LocaleSwitcher } from "@/components/locale-switcher";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,6 +17,7 @@ export function GalleryPasswordGate({
   shareToken?: string | null;
   title: string;
 }) {
+  const t = useTranslations("gate");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -34,20 +37,21 @@ export function GalleryPasswordGate({
 
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        setError(payload.error ?? "Mật khẩu chưa đúng");
+        setError(payload.error ?? t("wrong"));
         setLoading(false);
         return;
       }
 
       window.location.reload();
     } catch {
-      setError("Mất kết nối, vui lòng thử lại.");
+      setError(t("network"));
       setLoading(false);
     }
   }
 
   return (
-    <div className="mx-auto flex min-h-[80vh] max-w-md items-center px-4 py-10">
+    <main id="main" className="mx-auto flex min-h-[80vh] max-w-md flex-col items-center justify-center gap-4 px-4 py-10">
+      <LocaleSwitcher className="self-end" />
       <Card className="w-full">
         <CardContent className="p-8">
           <form onSubmit={submit} className="space-y-5">
@@ -58,7 +62,7 @@ export function GalleryPasswordGate({
             <div className="text-center">
               <h1 className="font-display text-3xl">{title}</h1>
               <p className="mt-2 text-sm text-muted-foreground">
-                Album được bảo vệ bằng mật khẩu. Vui lòng nhập mật khẩu nhiếp ảnh gia đã gửi cho bạn.
+                {t("body")}
               </p>
             </div>
 
@@ -66,7 +70,8 @@ export function GalleryPasswordGate({
               type="password"
               name="password"
               autoComplete="current-password"
-              placeholder="Mật khẩu album"
+              placeholder={t("placeholder")}
+              aria-label={t("placeholder")}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               autoFocus
@@ -76,11 +81,11 @@ export function GalleryPasswordGate({
 
             <Button type="submit" className="w-full" disabled={loading || !password}>
               {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Tiếp tục
+              {t("continue")}
             </Button>
           </form>
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 }

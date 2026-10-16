@@ -1,0 +1,310 @@
+{
+  "common": {
+    "language": "Ngôn ngữ"
+  },
+  "meta": {
+    "description": "Album ảnh và gửi chọn ảnh cho khách hàng."
+  },
+  "site": {
+    "portfolio": "Portfolio",
+    "dashboard": "Quản lý",
+    "photographerLogin": "Đăng nhập nhiếp ảnh gia",
+    "photoCount": "{count} ảnh"
+  },
+  "home": {
+    "eyebrow": "Nhiếp ảnh",
+    "tagline": "Những câu chuyện được kể bằng ánh sáng. Xem các album đã thực hiện gần đây.",
+    "viewPortfolio": "Xem portfolio",
+    "recentWork": "Album gần đây",
+    "empty": "Chưa có album công khai nào."
+  },
+  "portfolio": {
+    "title": "Portfolio",
+    "intro": "Các album công khai. Album của khách hàng chỉ mở được bằng link riêng.",
+    "empty": "Chưa có album công khai nào."
+  },
+  "login": {
+    "title": "Đăng nhập",
+    "subtitle": "Dành cho nhiếp ảnh gia quản lý album và lựa chọn của khách.",
+    "email": "Email",
+    "password": "Mật khẩu",
+    "submit": "Đăng nhập",
+    "signupTitle": "Tạo tài khoản nhiếp ảnh gia",
+    "signupHint": "Chỉ tài khoản đầu tiên trở thành chủ web. Tắt ALLOW_SIGNUP sau khi tạo xong.",
+    "fullName": "Họ tên hoặc tên studio",
+    "signupSubmit": "Tạo tài khoản",
+    "errors": {
+      "invalid": "Email hoặc mật khẩu chưa đúng.",
+      "noAccess": "Tài khoản này không có quyền quản lý.",
+      "signupDisabled": "Đăng ký đang tắt.",
+      "signupFailed": "Không tạo được tài khoản. Vui lòng thử lại."
+    },
+    "notices": {
+      "created": "Đã tạo tài khoản. Mời bạn đăng nhập.",
+      "signIn": "Vui lòng đăng nhập để tiếp tục."
+    }
+  },
+  "errors": {
+    "notFoundTitle": "Không tìm thấy trang",
+    "notFoundBody": "Link có thể đã sai, hết hạn hoặc album đã bị ẩn. Hãy kiểm tra lại link nhiếp ảnh gia gửi cho bạn.",
+    "home": "Về trang chủ",
+    "errorTitle": "Đã có lỗi xảy ra",
+    "errorBody": "Vui lòng thử lại. Nếu lỗi lặp lại, hãy báo cho nhiếp ảnh gia.",
+    "retry": "Thử lại"
+  },
+  "nav": {
+    "label": "Điều hướng quản lý",
+    "albums": "Album",
+    "newAlbum": "Tạo album",
+    "inbox": "Lựa chọn",
+    "site": "Trang web",
+    "studio": "Studio",
+    "signOut": "Đăng xuất"
+  },
+  "status": {
+    "draft": "Nháp",
+    "sent": "Đã gửi",
+    "selecting": "Khách đang chọn",
+    "editing": "Đang chỉnh",
+    "delivered": "Đã giao"
+  },
+  "dashboard": {
+    "title": "Album",
+    "subtitle": "{count, plural, =0 {Chưa có album} other {# album}}",
+    "newAlbum": "Tạo album",
+    "siteUrlMismatch": {
+      "title": "Link gửi khách đang dùng tên miền khác với web bạn đang mở.",
+      "body": "Link chia sẻ dùng {configured} (biến NEXT_PUBLIC_SITE_URL), còn bạn đang mở {current}. Nếu khách mở link bị lỗi, hãy sửa NEXT_PUBLIC_SITE_URL trên Vercel thành địa chỉ chính của web rồi Redeploy."
+    },
+    "empty": {
+      "title": "Chưa có album nào",
+      "body": "Tạo album đầu tiên, tải ảnh lên rồi gửi link cho khách chọn."
+    },
+    "todo": {
+      "title": "Cần xử lý",
+      "submitted": "Khách đã gửi lựa chọn: {title}",
+      "noPhotos": "Chưa có ảnh: {title}"
+    },
+    "actions": {
+      "viewSelections": "Xem lựa chọn",
+      "upload": "Tải ảnh lên",
+      "sendToClient": "Gửi cho khách",
+      "openGallery": "Mở album",
+      "copyLink": "Sao chép link",
+      "edit": "Sửa thông tin",
+      "more": "Thao tác khác",
+      "markAs": "Chuyển sang: {status}"
+    },
+    "filterLabel": "Lọc theo trạng thái",
+    "filterAll": "Tất cả",
+    "search": "Tìm album hoặc khách",
+    "noMatch": "Không có album nào khớp.",
+    "private": "Riêng tư",
+    "noClient": "Chưa gắn khách",
+    "stats": {
+      "photos": "Số ảnh",
+      "selected": "Đã chọn",
+      "views": "Lượt xem",
+      "photoCount": "{count} ảnh"
+    },
+    "toast": {
+      "statusChanged": "Đã chuyển sang “{status}”.",
+      "error": "Không lưu được, vui lòng thử lại.",
+      "linkCopied": "Đã sao chép link album.",
+      "sent": "Đã sao chép link. Gửi cho khách qua Zalo/Messenger nhé."
+    }
+  },
+  "inbox": {
+    "title": "Lựa chọn của khách",
+    "subtitle": "Các lượt khách đã bấm “Gửi lựa chọn”, mới nhất ở trên.",
+    "empty": "Chưa có khách nào gửi lựa chọn.",
+    "anonymous": "Khách",
+    "photos": "{count} ảnh"
+  },
+  "albumForm": {
+    "newTitle": "Tạo album",
+    "editTitle": "Sửa album",
+    "sections": {
+      "info": "Thông tin album",
+      "client": "Khách hàng",
+      "access": "Quyền truy cập và chọn ảnh",
+      "status": "Trạng thái"
+    },
+    "title": "Tên album",
+    "titlePlaceholder": "VD: Đám cưới Minh & Lan",
+    "eventDate": "Ngày chụp",
+    "address": "Địa chỉ album",
+    "addressHint": "Giữ nguyên khi đổi tên album, link đã gửi khách vẫn dùng được.",
+    "description": "Mô tả",
+    "clientHint": "Chọn khách có sẵn hoặc điền thông tin để tạo khách mới.",
+    "existingClient": "Khách hàng",
+    "newClientOption": "Khách mới (điền bên dưới)",
+    "clientName": "Tên khách",
+    "clientPhone": "Số điện thoại",
+    "clientEmail": "Email",
+    "clientNotes": "Ghi chú",
+    "visibility": "Ai được xem",
+    "visibilityOptions": {
+      "private": {
+        "label": "Riêng tư",
+        "hint": "Chỉ người có link chia sẻ mới mở được."
+      },
+      "public": {
+        "label": "Công khai",
+        "hint": "Hiện trên trang Portfolio, ai cũng xem được."
+      }
+    },
+    "password": "Mật khẩu album",
+    "passwordHint": "Để trống nếu không cần mật khẩu.",
+    "passwordSetHint": "Đã có mật khẩu. Nhập mật khẩu mới để thay.",
+    "removePassword": "Bỏ mật khẩu",
+    "selectionLimit": "Số ảnh tối đa khách được chọn",
+    "selectionLimitHint": "Để trống nếu không giới hạn (VD: 30 cho gói 30 ảnh chỉnh).",
+    "statusHint": "Thường tự đổi theo quy trình: Gửi cho khách → Khách đang chọn → Đang chỉnh khi khách bấm gửi.",
+    "status": "Trạng thái",
+    "save": "Lưu thay đổi",
+    "create": "Tạo album",
+    "errors": {
+      "title": "Vui lòng nhập tên album.",
+      "save": "Không lưu được album, vui lòng thử lại."
+    }
+  },
+  "album": {
+    "back": "Tất cả album",
+    "copyLink": "Sao chép link",
+    "copied": "Đã sao chép",
+    "openGallery": "Mở album",
+    "tabsLabel": "Trang của album",
+    "tabs": {
+      "upload": "Ảnh",
+      "selections": "Lựa chọn",
+      "edit": "Thông tin"
+    }
+  },
+  "upload": {
+    "dropTitle": "Kéo thả hoặc bấm để chọn nhiều ảnh",
+    "dropHint": "JPG, PNG, WEBP tối đa 50MB mỗi ảnh. Hệ thống tự tạo bản xem trước 2048px cho khách; ảnh gốc không bao giờ được gửi tới khách.",
+    "uploading": "Đang tải lên…",
+    "finished": "Hoàn tất",
+    "progress": "{done}/{total} thành công",
+    "errorsCount": "{count} lỗi",
+    "count": "{count} ảnh trong album",
+    "noPreview": "Không có bản xem trước",
+    "deleteLabel": "Xoá {name}",
+    "confirmDelete": {
+      "title": "Xoá ảnh này?",
+      "body": "Ảnh bị xoá khỏi album và khỏi lựa chọn của khách. Không thể hoàn tác.",
+      "confirm": "Xoá ảnh",
+      "cancel": "Huỷ"
+    },
+    "toast": {
+      "batchDone": "Đã xử lý {count} ảnh.",
+      "deleted": "Đã xoá ảnh."
+    },
+    "errors": {
+      "noUploadUrl": "Thiếu link upload",
+      "http": "Upload lỗi (HTTP {status})",
+      "storageUnreachable": "Không kết nối được kho ảnh (kiểm tra CORS của bucket R2)",
+      "type": "Chỉ nhận JPG, PNG, WEBP (HEIC/RAW hãy xuất sang JPG trước)",
+      "size": "Ảnh lớn hơn 50MB",
+      "prepare": "Không chuẩn bị được upload",
+      "network": "Mất kết nối, vui lòng thử lại",
+      "save": "Không lưu được ảnh",
+      "delete": "Không xoá được ảnh"
+    }
+  },
+  "selections": {
+    "summary": "{photos} ảnh trong album · {clients, plural, =0 {chưa có khách chọn} other {# khách đã chọn}}",
+    "limit": "giới hạn {limit} ảnh",
+    "reopen": "Mở lại cho khách chọn",
+    "lock": "Chốt lựa chọn",
+    "empty": "Khách chưa chọn ảnh nào.",
+    "anonymous": "Khách chưa nhập tên",
+    "photoCount": "{count} ảnh",
+    "submittedAt": "Đã gửi lúc {time}",
+    "inProgress": "Đang chọn (chưa bấm gửi)",
+    "copyFileNames": "Copy tên file",
+    "copyLightroom": "Copy cho Lightroom",
+    "copied": "Đã copy",
+    "clientNote": "Ghi chú của khách"
+  },
+  "gallery": {
+    "eyebrow": "Album chọn ảnh",
+    "intro": "{count} ảnh · Chạm ♥ để chọn, chạm vào ảnh để xem lớn.",
+    "limitHint": "Được chọn tối đa {limit} ảnh.",
+    "filterAll": "Tất cả ({count})",
+    "filterSelected": "Đã chọn ({count})",
+    "lockedToast": "Album đã chốt lựa chọn. Liên hệ nhiếp ảnh gia nếu cần thay đổi.",
+    "limitReached": "Bạn chỉ được chọn tối đa {limit} ảnh. Bỏ chọn bớt ảnh khác trước nhé.",
+    "saveFailed": "Không lưu được lựa chọn, vui lòng thử lại.",
+    "offline": "Mất kết nối. Lựa chọn chưa được lưu, vui lòng thử lại.",
+    "lockedSubmitted": "Bạn đã gửi lựa chọn cho nhiếp ảnh gia. Cảm ơn bạn!",
+    "locked": "Album đã chốt lựa chọn.",
+    "lockedContact": "Nếu cần thay đổi, vui lòng liên hệ nhiếp ảnh gia để mở lại.",
+    "noPhotos": "Nhiếp ảnh gia chưa tải ảnh lên album này.",
+    "noneSelected": "Bạn chưa chọn ảnh nào.",
+    "viewPhoto": "Xem lớn ảnh {number}",
+    "photoAlt": "Ảnh {number}",
+    "imageError": "Không tải được ảnh",
+    "unselectPhoto": "Bỏ chọn ảnh {number}",
+    "selectPhoto": "Chọn ảnh {number}",
+    "selectedCount": "{limit, plural, =0 {{count} ảnh đã chọn} other {{count} / {limit} ảnh đã chọn}}",
+    "sentToPhotographer": "Đã gửi cho nhiếp ảnh gia",
+    "autoSaved": "Lựa chọn được lưu tự động",
+    "review": "Xem lại",
+    "submit": "Gửi lựa chọn",
+    "close": "Đóng",
+    "previous": "Ảnh trước",
+    "next": "Ảnh sau",
+    "selected": "Đã chọn",
+    "selectThis": "Chọn ảnh này",
+    "submittedToast": "Đã gửi lựa chọn cho nhiếp ảnh gia. Cảm ơn bạn!",
+    "submitFailed": "Không gửi được, vui lòng thử lại.",
+    "networkError": "Mất kết nối, vui lòng thử lại.",
+    "submitTitle": "Gửi lựa chọn",
+    "submitBody": "Bạn đã chọn {limit, plural, =0 {{count}} other {{count}/{limit}}} ảnh. Sau khi gửi, lựa chọn sẽ được chốt để nhiếp ảnh gia bắt đầu chỉnh sửa.",
+    "namePlaceholder": "Tên của bạn *",
+    "emailPlaceholder": "Email (không bắt buộc)",
+    "notePlaceholder": "Ghi chú cho nhiếp ảnh gia (VD: ảnh #12 xoá giúp người phía sau)",
+    "later": "Để sau",
+    "confirmSubmit": "Xác nhận gửi",
+    "ogDescription": "Xem và chọn ảnh của bạn."
+  },
+  "gate": {
+    "wrong": "Mật khẩu chưa đúng",
+    "network": "Mất kết nối, vui lòng thử lại.",
+    "body": "Album được bảo vệ bằng mật khẩu. Vui lòng nhập mật khẩu nhiếp ảnh gia đã gửi cho bạn.",
+    "placeholder": "Mật khẩu album",
+    "continue": "Tiếp tục"
+  },
+  "selectedPage": {
+    "eyebrow": "Ảnh đã chọn",
+    "count": "{limit, plural, =0 {{count} ảnh} other {{count} ảnh / tối đa {limit}}}",
+    "submittedAt": "Đã gửi cho nhiếp ảnh gia lúc {time}",
+    "notSubmitted": "Chưa gửi cho nhiếp ảnh gia",
+    "back": "Quay lại album",
+    "empty": "Bạn chưa chọn ảnh nào. Quay lại album và chạm vào biểu tượng trái tim để chọn."
+  },
+  "api": {
+    "invalidRequest": "Yêu cầu không hợp lệ",
+    "albumNotFound": "Không tìm thấy album",
+    "passwordRequired": "Cần nhập mật khẩu album",
+    "wrongPassword": "Mật khẩu chưa đúng",
+    "selectionLocked": "Album đã chốt lựa chọn. Vui lòng liên hệ nhiếp ảnh gia nếu cần thay đổi.",
+    "alreadySubmitted": "Album đã được chốt trước đó.",
+    "photoNotInAlbum": "Ảnh không thuộc album này",
+    "saveFailed": "Không lưu được lựa chọn, thử lại sau",
+    "limitReached": "Bạn chỉ được chọn tối đa {limit} ảnh. Bỏ chọn bớt ảnh khác trước nhé.",
+    "nothingSelected": "Bạn chưa chọn ảnh nào.",
+    "overLimit": "Bạn đang chọn {count} ảnh, vượt giới hạn {limit} ảnh.",
+    "submitFailed": "Không gửi được, vui lòng thử lại",
+    "nameRequired": "Vui lòng nhập tên",
+    "invalidEmail": "Email không hợp lệ",
+    "sessionExpired": "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại",
+    "invalidPhotoData": "Dữ liệu ảnh không hợp lệ",
+    "invalidPath": "Đường dẫn ảnh không hợp lệ",
+    "photoNotFound": "Không tìm thấy ảnh",
+    "invalidFile": "Chỉ nhận JPG, PNG, WEBP tối đa 50MB",
+    "photoSaveFailed": "Không lưu được ảnh"
+  }
+}

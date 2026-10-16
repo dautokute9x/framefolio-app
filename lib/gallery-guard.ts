@@ -1,6 +1,6 @@
 import "server-only";
 import { cookies } from "next/headers";
-import { NextResponse } from "next/server";
+import { apiError } from "@/lib/api-error";
 import {
   getSelectionCookieName,
   getSelectionKey,
@@ -30,12 +30,12 @@ export async function guardGalleryRequest(slug: string, shareToken?: string | nu
   const album = data as GuardedAlbum | null;
 
   if (!album || !isShareTokenValid(album, shareToken)) {
-    return { error: NextResponse.json({ error: "Không tìm thấy album" }, { status: 404 }) } as const;
+    return { error: await apiError("albumNotFound", 404) } as const;
   }
 
   if (!(await hasAlbumPasswordAccess(album))) {
     return {
-      error: NextResponse.json({ error: "Cần nhập mật khẩu album" }, { status: 403 }),
+      error: await apiError("passwordRequired", 403),
     } as const;
   }
 

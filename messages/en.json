@@ -1,0 +1,310 @@
+{
+  "common": {
+    "language": "Language"
+  },
+  "meta": {
+    "description": "Photo galleries and client photo selection."
+  },
+  "site": {
+    "portfolio": "Portfolio",
+    "dashboard": "Dashboard",
+    "photographerLogin": "Photographer login",
+    "photoCount": "{count, plural, one {# photo} other {# photos}}"
+  },
+  "home": {
+    "eyebrow": "Photography",
+    "tagline": "Stories told with light. Browse recent albums.",
+    "viewPortfolio": "View portfolio",
+    "recentWork": "Recent albums",
+    "empty": "No public albums yet."
+  },
+  "portfolio": {
+    "title": "Portfolio",
+    "intro": "Public albums. Client albums open only through their private link.",
+    "empty": "No public albums yet."
+  },
+  "login": {
+    "title": "Sign in",
+    "subtitle": "For the photographer to manage albums and client selections.",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "signupTitle": "Create the photographer account",
+    "signupHint": "Only the first account becomes the site owner. Turn ALLOW_SIGNUP off afterwards.",
+    "fullName": "Full name or studio name",
+    "signupSubmit": "Create account",
+    "errors": {
+      "invalid": "Wrong email or password.",
+      "noAccess": "This account does not have photographer access.",
+      "signupDisabled": "Sign-up is disabled.",
+      "signupFailed": "Could not create the account. Please try again."
+    },
+    "notices": {
+      "created": "Account created. Please sign in.",
+      "signIn": "Please sign in to continue."
+    }
+  },
+  "errors": {
+    "notFoundTitle": "Page not found",
+    "notFoundBody": "The link may be wrong, expired, or the album was hidden. Please check the link your photographer sent you.",
+    "home": "Go to home page",
+    "errorTitle": "Something went wrong",
+    "errorBody": "Please try again. If it keeps happening, let the photographer know.",
+    "retry": "Try again"
+  },
+  "nav": {
+    "label": "Dashboard navigation",
+    "albums": "Albums",
+    "newAlbum": "New album",
+    "inbox": "Selections",
+    "site": "Website",
+    "studio": "Studio",
+    "signOut": "Sign out"
+  },
+  "status": {
+    "draft": "Draft",
+    "sent": "Sent",
+    "selecting": "Client selecting",
+    "editing": "Editing",
+    "delivered": "Delivered"
+  },
+  "dashboard": {
+    "title": "Albums",
+    "subtitle": "{count, plural, =0 {No albums yet} one {# album} other {# albums}}",
+    "newAlbum": "New album",
+    "siteUrlMismatch": {
+      "title": "Client links use a different domain than the site you are on.",
+      "body": "Share links use {configured} (NEXT_PUBLIC_SITE_URL) while you are on {current}. If clients cannot open links, set NEXT_PUBLIC_SITE_URL on Vercel to the site's main address and redeploy."
+    },
+    "empty": {
+      "title": "No albums yet",
+      "body": "Create your first album, upload photos, then send the link to your client."
+    },
+    "todo": {
+      "title": "Needs attention",
+      "submitted": "Client sent their selection: {title}",
+      "noPhotos": "No photos yet: {title}"
+    },
+    "actions": {
+      "viewSelections": "View selection",
+      "upload": "Upload photos",
+      "sendToClient": "Send to client",
+      "openGallery": "Open album",
+      "copyLink": "Copy link",
+      "edit": "Edit details",
+      "more": "More actions",
+      "markAs": "Mark as: {status}"
+    },
+    "filterLabel": "Filter by status",
+    "filterAll": "All",
+    "search": "Search albums or clients",
+    "noMatch": "No matching albums.",
+    "private": "Private",
+    "noClient": "No client linked",
+    "stats": {
+      "photos": "Photos",
+      "selected": "Selected",
+      "views": "Views",
+      "photoCount": "{count, plural, one {# photo} other {# photos}}"
+    },
+    "toast": {
+      "statusChanged": "Moved to “{status}”.",
+      "error": "Could not save, please try again.",
+      "linkCopied": "Album link copied.",
+      "sent": "Link copied. Send it to your client by message."
+    }
+  },
+  "inbox": {
+    "title": "Client selections",
+    "subtitle": "Clients who pressed “Send selection”, newest first.",
+    "empty": "No client has sent a selection yet.",
+    "anonymous": "Client",
+    "photos": "{count, plural, one {# photo} other {# photos}}"
+  },
+  "albumForm": {
+    "newTitle": "New album",
+    "editTitle": "Edit album",
+    "sections": {
+      "info": "Album details",
+      "client": "Client",
+      "access": "Access and selection",
+      "status": "Status"
+    },
+    "title": "Album title",
+    "titlePlaceholder": "e.g. Minh & Lan wedding",
+    "eventDate": "Shoot date",
+    "address": "Album address",
+    "addressHint": "Stays the same when you rename the album, so links already sent keep working.",
+    "description": "Description",
+    "clientHint": "Pick an existing client or fill in the details to create a new one.",
+    "existingClient": "Client",
+    "newClientOption": "New client (fill in below)",
+    "clientName": "Client name",
+    "clientPhone": "Phone",
+    "clientEmail": "Email",
+    "clientNotes": "Notes",
+    "visibility": "Who can view",
+    "visibilityOptions": {
+      "private": {
+        "label": "Private",
+        "hint": "Only people with the share link can open it."
+      },
+      "public": {
+        "label": "Public",
+        "hint": "Listed on the Portfolio page for everyone."
+      }
+    },
+    "password": "Album password",
+    "passwordHint": "Leave empty for no password.",
+    "passwordSetHint": "A password is set. Type a new one to replace it.",
+    "removePassword": "Remove password",
+    "selectionLimit": "Maximum photos the client can pick",
+    "selectionLimitHint": "Leave empty for no limit (e.g. 30 for a 30-photo package).",
+    "statusHint": "Usually changes on its own: Send to client → Client selecting → Editing when the client submits.",
+    "status": "Status",
+    "save": "Save changes",
+    "create": "Create album",
+    "errors": {
+      "title": "Please enter an album title.",
+      "save": "Could not save the album, please try again."
+    }
+  },
+  "album": {
+    "back": "All albums",
+    "copyLink": "Copy link",
+    "copied": "Copied",
+    "openGallery": "Open album",
+    "tabsLabel": "Album pages",
+    "tabs": {
+      "upload": "Photos",
+      "selections": "Selections",
+      "edit": "Details"
+    }
+  },
+  "upload": {
+    "dropTitle": "Drag and drop or click to choose photos",
+    "dropHint": "JPG, PNG, WEBP up to 50MB each. A 2048px preview is created for clients; originals are never sent to clients.",
+    "uploading": "Uploading…",
+    "finished": "Done",
+    "progress": "{done}/{total} uploaded",
+    "errorsCount": "{count, plural, one {# error} other {# errors}}",
+    "count": "{count, plural, one {# photo} other {# photos}} in this album",
+    "noPreview": "No preview",
+    "deleteLabel": "Delete {name}",
+    "confirmDelete": {
+      "title": "Delete this photo?",
+      "body": "The photo is removed from the album and from client selections. This cannot be undone.",
+      "confirm": "Delete photo",
+      "cancel": "Cancel"
+    },
+    "toast": {
+      "batchDone": "{count, plural, one {# photo} other {# photos}} processed.",
+      "deleted": "Photo deleted."
+    },
+    "errors": {
+      "noUploadUrl": "Missing upload link",
+      "http": "Upload failed (HTTP {status})",
+      "storageUnreachable": "Cannot reach photo storage (check the R2 bucket CORS)",
+      "type": "Only JPG, PNG, WEBP (export HEIC/RAW to JPG first)",
+      "size": "Photo is larger than 50MB",
+      "prepare": "Could not prepare the upload",
+      "network": "Connection lost, please try again",
+      "save": "Could not save the photo",
+      "delete": "Could not delete the photo"
+    }
+  },
+  "selections": {
+    "summary": "{photos} photos in album · {clients, plural, =0 {no selections yet} one {# client selected} other {# clients selected}}",
+    "limit": "limit {limit} photos",
+    "reopen": "Reopen for the client",
+    "lock": "Lock selection",
+    "empty": "The client has not selected any photos yet.",
+    "anonymous": "Unnamed client",
+    "photoCount": "{count, plural, one {# photo} other {# photos}}",
+    "submittedAt": "Sent at {time}",
+    "inProgress": "Still selecting (not sent)",
+    "copyFileNames": "Copy file names",
+    "copyLightroom": "Copy for Lightroom",
+    "copied": "Copied",
+    "clientNote": "Client note"
+  },
+  "gallery": {
+    "eyebrow": "Photo selection",
+    "intro": "{count, plural, one {# photo} other {# photos}} · Tap ♥ to pick, tap a photo to view it large.",
+    "limitHint": "You can pick up to {limit} photos.",
+    "filterAll": "All ({count})",
+    "filterSelected": "Selected ({count})",
+    "lockedToast": "This album's selection is locked. Contact the photographer to make changes.",
+    "limitReached": "You can pick up to {limit} photos. Unselect another photo first.",
+    "saveFailed": "Could not save your pick, please try again.",
+    "offline": "Connection lost. Your pick was not saved, please try again.",
+    "lockedSubmitted": "You sent your selection to the photographer. Thank you!",
+    "locked": "This album's selection is locked.",
+    "lockedContact": "To change it, please ask the photographer to reopen it.",
+    "noPhotos": "The photographer has not uploaded photos yet.",
+    "noneSelected": "You have not picked any photos yet.",
+    "viewPhoto": "View photo {number}",
+    "photoAlt": "Photo {number}",
+    "imageError": "Could not load photo",
+    "unselectPhoto": "Unselect photo {number}",
+    "selectPhoto": "Select photo {number}",
+    "selectedCount": "{limit, plural, =0 {{count} selected} other {{count} / {limit} selected}}",
+    "sentToPhotographer": "Sent to the photographer",
+    "autoSaved": "Your picks are saved automatically",
+    "review": "Review",
+    "submit": "Send selection",
+    "close": "Close",
+    "previous": "Previous photo",
+    "next": "Next photo",
+    "selected": "Selected",
+    "selectThis": "Select this photo",
+    "submittedToast": "Selection sent to the photographer. Thank you!",
+    "submitFailed": "Could not send, please try again.",
+    "networkError": "Connection lost, please try again.",
+    "submitTitle": "Send selection",
+    "submitBody": "You picked {limit, plural, =0 {{count}} other {{count}/{limit}}} photos. After sending, the selection is locked so the photographer can start editing.",
+    "namePlaceholder": "Your name *",
+    "emailPlaceholder": "Email (optional)",
+    "notePlaceholder": "Note for the photographer (e.g. photo #12: remove the person behind)",
+    "later": "Not yet",
+    "confirmSubmit": "Confirm & send",
+    "ogDescription": "View and pick your photos."
+  },
+  "gate": {
+    "wrong": "Wrong password",
+    "network": "Connection lost, please try again.",
+    "body": "This album is password protected. Enter the password your photographer sent you.",
+    "placeholder": "Album password",
+    "continue": "Continue"
+  },
+  "selectedPage": {
+    "eyebrow": "Selected photos",
+    "count": "{limit, plural, =0 {{count} photos} other {{count} photos / max {limit}}}",
+    "submittedAt": "Sent to the photographer at {time}",
+    "notSubmitted": "Not sent to the photographer yet",
+    "back": "Back to album",
+    "empty": "You have not picked any photos. Go back and tap the heart to pick."
+  },
+  "api": {
+    "invalidRequest": "Invalid request",
+    "albumNotFound": "Album not found",
+    "passwordRequired": "Album password required",
+    "wrongPassword": "Wrong password",
+    "selectionLocked": "This album's selection is locked. Contact the photographer to make changes.",
+    "alreadySubmitted": "This album was already submitted.",
+    "photoNotInAlbum": "This photo is not in the album",
+    "saveFailed": "Could not save, please try again later",
+    "limitReached": "You can pick up to {limit} photos. Unselect another photo first.",
+    "nothingSelected": "You have not picked any photos.",
+    "overLimit": "You picked {count} photos, more than the limit of {limit}.",
+    "submitFailed": "Could not send, please try again",
+    "nameRequired": "Please enter your name",
+    "invalidEmail": "Invalid email",
+    "sessionExpired": "Your session expired, please sign in again",
+    "invalidPhotoData": "Invalid photo data",
+    "invalidPath": "Invalid photo path",
+    "photoNotFound": "Photo not found",
+    "invalidFile": "Only JPG, PNG, WEBP up to 50MB",
+    "photoSaveFailed": "Could not save the photo"
+  }
+}

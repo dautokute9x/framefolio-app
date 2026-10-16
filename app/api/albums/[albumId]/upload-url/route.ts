@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { apiError } from "@/lib/api-error";
 import { z } from "zod";
 import { getCurrentProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -27,15 +28,12 @@ export async function POST(
   const { albumId } = await params;
   const profile = await getCurrentProfile();
   if (!profile) {
-    return NextResponse.json({ error: "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại" }, { status: 401 });
+    return await apiError("sessionExpired", 401);
   }
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Chỉ nhận JPG, PNG, WEBP tối đa 50MB" },
-      { status: 400 }
-    );
+    return await apiError("invalidFile", 400);
   }
   const body = parsed.data;
 
@@ -47,7 +45,7 @@ export async function POST(
     .eq("owner_id", profile.id)
     .maybeSingle();
   if (!album) {
-    return NextResponse.json({ error: "Không tìm thấy album" }, { status: 404 });
+    return await apiError("albumNotFound", 404);
   }
 
   const ext = (body.fileName.split(".").pop() ?? "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";

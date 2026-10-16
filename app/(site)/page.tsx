@@ -1,82 +1,41 @@
 import Link from "next/link";
-import { ArrowRight, ImageIcon, LockKeyhole, UploadCloud } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { getTranslations } from "next-intl/server";
+import { ArrowRight } from "lucide-react";
 import { PortfolioCard } from "@/components/marketing/portfolio-card";
+import { Button } from "@/components/ui/button";
+import { getBrand } from "@/lib/brand";
 import { getPublicPortfolioAlbums } from "@/lib/data";
 
 export default async function HomePage() {
-  const albums = await getPublicPortfolioAlbums(3);
+  const [t, brand, albums] = await Promise.all([getTranslations("home"), getBrand(), getPublicPortfolioAlbums(6)]);
 
   return (
-    <div>
-      <section className="subtle-grid border-b border-border/80">
-        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-20 sm:px-6 lg:grid-cols-[1.1fr_0.9fr] lg:px-8 lg:py-28">
-          <div className="max-w-2xl">
-            <p className="text-xs uppercase tracking-[0.32em] text-muted-foreground">Single photographer workflow</p>
-            <h1 className="mt-5 font-display text-5xl leading-tight sm:text-6xl">
-              Elegant client galleries with a calm, premium admin workflow.
-            </h1>
-            <p className="mt-6 max-w-xl text-lg text-muted-foreground">
-              Publish your portfolio, send private galleries, collect client selections,
-              and review final favorites from one refined dashboard.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Button asChild size="lg">
-                <Link href="/portfolio">
-                  View portfolio
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-              <Button asChild size="lg" variant="outline">
-                <Link href="/login">Admin login</Link>
-              </Button>
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
-            {[
-              {
-                icon: UploadCloud,
-                title: "Direct uploads",
-                body: "Send images straight to secure Supabase Storage from the browser.",
-              },
-              {
-                icon: LockKeyhole,
-                title: "Private access",
-                body: "Use private share links and optional gallery passwords.",
-              },
-              {
-                icon: ImageIcon,
-                title: "Client selections",
-                body: "Let clients shortlist their favorites on mobile, then review everything in admin.",
-              },
-            ].map((item) => (
-              <div key={item.title} className="surface p-6">
-                <item.icon className="h-6 w-6" />
-                <h2 className="mt-4 text-lg font-semibold">{item.title}</h2>
-                <p className="mt-2 text-sm text-muted-foreground">{item.body}</p>
-              </div>
-            ))}
-          </div>
-        </div>
+    <div className="mx-auto max-w-6xl px-4 sm:px-6">
+      <section className="py-14 sm:py-20">
+        <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">{t("eyebrow")}</p>
+        <h1 className="mt-4 max-w-3xl font-display text-4xl leading-tight sm:text-6xl">{brand.name}</h1>
+        <p className="mt-4 max-w-xl text-lg text-muted-foreground">{t("tagline")}</p>
+        <Button asChild size="lg" className="mt-8">
+          <Link href="/portfolio">
+            {t("viewPortfolio")}
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </Button>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        <div className="mb-8 flex items-end justify-between gap-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.26em] text-muted-foreground">Featured work</p>
-            <h2 className="mt-2 font-display text-4xl">Public portfolio</h2>
+      <section className="pb-16">
+        <h2 className="font-display text-2xl sm:text-3xl">{t("recentWork")}</h2>
+        {albums.length ? (
+          <div className="mt-6 grid gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
+            {albums.map((album) => (
+              <PortfolioCard key={album.id} album={album} />
+            ))}
           </div>
-          <Link href="/portfolio" className="text-sm font-medium text-primary">
-            See all albums
-          </Link>
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {albums.map((album) => (
-            <PortfolioCard key={album.id} album={album} />
-          ))}
-        </div>
+        ) : (
+          <p className="mt-6 rounded-2xl border border-dashed border-border p-10 text-center text-muted-foreground">
+            {t("empty")}
+          </p>
+        )}
       </section>
     </div>
   );

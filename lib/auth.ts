@@ -25,7 +25,7 @@ export async function getCurrentProfile() {
 export async function requireAdminProfile() {
   const profile = await getCurrentProfile();
   if (!profile) {
-    redirect("/login?message=Please+sign+in");
+    redirect("/login?notice=signIn");
   }
   return profile;
 }
