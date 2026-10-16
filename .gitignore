@@ -5,3 +5,7 @@ node_modules
 .vercel
 DS_Store
 *.tsbuildinfo
+playwright-report
+test-results
+supabase/.temp
+supabase/.branches

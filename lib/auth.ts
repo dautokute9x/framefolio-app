@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
 
-export async function getCurrentAuthUser() {
+async function getCurrentAuthUser() {
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
   return data.user ?? null;

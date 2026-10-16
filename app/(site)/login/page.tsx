@@ -2,7 +2,6 @@ import { Lock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { DEMO_EMAIL, DEMO_PASSWORD } from "@/lib/constants";
 import { signInAction, signUpAction } from "@/lib/server-actions/auth";
 import { serverEnv } from "@/lib/env.server";
 
@@ -22,14 +21,6 @@ export default async function LoginPage({
         <p className="mt-4 text-muted-foreground">
           This starter is intentionally built for a single photographer, with a clean dashboard and a simple client-facing gallery flow.
         </p>
-
-        {serverEnv.showDemoLogin ? (
-          <div className="surface mt-8 p-5 text-sm">
-            <p className="font-medium">Demo account after seeding</p>
-            <p className="mt-2 text-muted-foreground">Email: {DEMO_EMAIL}</p>
-            <p className="text-muted-foreground">Password: {DEMO_PASSWORD}</p>
-          </div>
-        ) : null}
       </div>
 
       <div className="grid gap-6">
@@ -61,7 +52,7 @@ export default async function LoginPage({
             <div>
               <h2 className="text-xl font-semibold">Create photographer account</h2>
               <p className="text-sm text-muted-foreground">
-                Only the first account (or an email pre-registered in supabase/seed.sql) becomes the photographer. Turn ALLOW_SIGNUP off afterwards.
+                Only the first account becomes the photographer. Turn ALLOW_SIGNUP off afterwards.
               </p>
             </div>
 

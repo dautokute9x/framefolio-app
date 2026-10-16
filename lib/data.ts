@@ -233,7 +233,7 @@ type GalleryAlbumRow = Album & { clients: Pick<Client, "name"> | null };
 /**
  * Loads an album for the public gallery. Runs with the service client because
  * anonymous visitors have no RLS access to `albums`; every caller MUST check
- * access with `canAccessAlbum` before exposing photos.
+ * access with `isShareTokenValid` + `hasAlbumPasswordAccess` before exposing photos.
  */
 export async function getGalleryAlbumBySlug(slug: string): Promise<GalleryAlbumRow | null> {
   const admin = createAdminClient();

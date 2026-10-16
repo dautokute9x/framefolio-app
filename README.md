@@ -49,51 +49,22 @@ A simplified, production-oriented photography client gallery web app inspired by
 ## Project structure
 
 ```txt
-framefolio-app/
-├─ app/
-│  ├─ api/
-│  │  ├─ albums/[albumId]/photos/route.ts
-│  │  └─ gallery/[slug]/
-│  │     ├─ unlock/route.ts
-│  │     └─ select/route.ts
-│  ├─ auth/callback/route.ts
-│  ├─ dashboard/
-│  │  ├─ albums/
-│  │  │  ├─ actions.ts
-│  │  │  ├─ new/page.tsx
-│  │  │  └─ [albumId]/
-│  │  │     ├─ edit/page.tsx
-│  │  │     ├─ upload/page.tsx
-│  │  │     └─ selections/page.tsx
-│  │  ├─ layout.tsx
-│  │  └─ page.tsx
-│  ├─ gallery/[slug]/
-│  │  ├─ page.tsx
-│  │  └─ selected/page.tsx
-│  ├─ login/page.tsx
-│  ├─ portfolio/page.tsx
-│  ├─ globals.css
-│  ├─ layout.tsx
-│  └─ page.tsx
-├─ components/
-│  ├─ dashboard/
-│  ├─ gallery/
-│  ├─ marketing/
-│  └─ ui/
-├─ lib/
-│  ├─ server-actions/
-│  └─ supabase/
-├─ public/demo/
-├─ scripts/seed-demo.mjs
-├─ supabase/
-│  ├─ migrations/0001_initial.sql
-│  └─ seed.sql
-├─ .env.example
-├─ middleware.ts
-├─ next.config.ts
-├─ package.json
-├─ tailwind.config.ts
-└─ tsconfig.json
+app/
+  (site)/            public pages with the site header: home, portfolio, login
+  dashboard/         photographer area (albums, upload, selections)
+  gallery/[slug]/    client gallery + "selected" page
+  api/               albums (upload-url, photos), gallery (unlock, select, submit), health
+components/          dashboard/, gallery/, marketing/, ui/ (shadcn)
+lib/                 data access, auth, storage (Supabase/R2), env, helpers
+supabase/
+  config.toml        local Supabase for development and CI
+  migrations/        0001_initial.sql, 0002_selection_workflow.sql
+scripts/dev/         demo data for local development only (never run in production)
+tests/
+  unit/              Vitest
+  e2e/               Playwright (selection flow + security regressions)
+docs/                setup guides
+.github/workflows/   CI (lint, typecheck, tests, build, e2e) and Supabase keep-alive
 ```
 
 ---
@@ -137,7 +108,6 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=YOUR_SUPABASE_PUBLISHABLE_KEY
 SUPABASE_SERVICE_ROLE_KEY=YOUR_SUPABASE_SERVICE_ROLE_KEY
 ALBUM_COOKIE_SECRET=replace-with-a-long-random-secret
 ALLOW_SIGNUP=false
-SHOW_DEMO_LOGIN=false
 ```
 
 ### Notes
@@ -145,8 +115,7 @@ SHOW_DEMO_LOGIN=false
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` is used in the browser/client app.
 - `SUPABASE_SERVICE_ROLE_KEY` is **server only**. Never expose it to the browser.
 - `ALBUM_COOKIE_SECRET` signs password-access cookies for locked galleries.
-- `ALLOW_SIGNUP=true` shows the sign-up form. Only the **first** account (or an email pre-created in `supabase/seed.sql`) becomes the photographer; turn it off afterwards.
-- `SHOW_DEMO_LOGIN=true` prints the demo credentials on `/login` (local demos only).
+- `ALLOW_SIGNUP=true` shows the sign-up form. Only the **first** account becomes the photographer; turn it off afterwards.
 
 ---
 
@@ -169,7 +138,7 @@ Open the Supabase SQL editor and run, in order:
 
 - `supabase/migrations/0001_initial.sql`
 - `supabase/migrations/0002_selection_workflow.sql` (previews, selection limit, client submit, single-admin sign-up, photo ordering)
-- then `supabase/seed.sql`
+- (local development only) `scripts/dev/seed.sql`
 
 This creates:
 
@@ -204,6 +173,19 @@ http://localhost:3000
 ```
 
 ---
+
+## Local development and tests
+
+```bash
+npx supabase start            # local Supabase (Docker); applies supabase/migrations
+# copy the printed API URL / keys into .env.local
+npm run seed:demo             # demo photographer, albums and photos
+npm run dev
+npm run lint && npm run typecheck && npm run test:unit
+npm run build && npm run test:e2e   # Playwright, needs the seeded local Supabase
+```
+
+CI runs the same steps on every pull request (`.github/workflows/ci.yml`).
 
 ## Demo seed data
 
@@ -359,7 +341,7 @@ The migration creates it automatically.
 SVG placeholder assets are included in:
 
 ```txt
-public/demo/
+scripts/dev/demo-assets/
 ```
 
 These are used by the seed script so the app can open with realistic demo galleries immediately.

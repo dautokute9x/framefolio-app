@@ -146,7 +146,7 @@ async function upsertAlbum(ownerId, clientId, album) {
 }
 
 async function uploadPhoto(ownerId, album, filename, sortOrder) {
-  const source = fs.readFileSync(path.join(root, "public", "demo", filename));
+  const source = fs.readFileSync(path.join(root, "scripts", "dev", "demo-assets", filename));
   const storagePath = `${ownerId}/${album.id}/${filename}`;
 
   const { error: uploadError } = await supabase.storage

@@ -1,21 +1,11 @@
 import type { NextConfig } from "next";
 
-// Allow images from whatever Supabase host is configured (custom domain,
-// self-hosted or *.supabase.co) instead of hard-coding one pattern.
-const supabaseHost = (() => {
-  try {
-    return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").hostname;
-  } catch {
-    return null;
-  }
-})();
-
 const nextConfig: NextConfig = {
+  // Photos are served as short-lived signed URLs of pre-sized previews, so the
+  // Next.js image optimizer (/_next/image) is not used anywhere. Turning it off
+  // removes an endpoint that has had several security advisories.
   images: {
-    remotePatterns: [
-      { protocol: "https", hostname: "**.supabase.co" },
-      ...(supabaseHost ? [{ hostname: supabaseHost }] : []),
-    ],
+    unoptimized: true,
   },
   async headers() {
     return [
@@ -26,6 +16,14 @@ const nextConfig: NextConfig = {
           { key: "X-Robots-Tag", value: "noindex, nofollow" },
           { key: "Cache-Control", value: "private, no-store" },
           { key: "Referrer-Policy", value: "no-referrer" },
+        ],
+      },
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
         ],
       },
     ];
