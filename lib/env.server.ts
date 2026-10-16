@@ -18,6 +18,4 @@ export const serverEnv = {
   ),
   /** Set to "true" only while creating the photographer account. */
   allowSignup: process.env.ALLOW_SIGNUP === "true",
-  /** Show demo credentials on the login page (never in production). */
-  showDemoLogin: process.env.SHOW_DEMO_LOGIN === "true",
 };

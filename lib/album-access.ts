@@ -25,7 +25,7 @@ export function createAlbumAccessCookieValue(albumId: string, passwordHash: stri
   return `${albumId}.${signAlbumToken(albumId, passwordHash)}`;
 }
 
-export function verifyAlbumAccessCookieValue(
+function verifyAlbumAccessCookieValue(
   albumId: string,
   passwordHash: string,
   value?: string | null
@@ -57,13 +57,6 @@ export function isShareTokenValid(
   return !!shareToken && shareToken === album.share_token;
 }
 
-export async function canAccessAlbum(
-  album: Pick<Album, "id" | "visibility" | "share_token" | "password_hash">,
-  shareToken?: string | null
-) {
-  if (!isShareTokenValid(album, shareToken)) return false;
-  return hasAlbumPasswordAccess(album);
-}
 
 const SELECTION_KEY_PATTERN = /^[0-9a-f-]{36}$/i;
 
@@ -74,7 +67,7 @@ export function getSelectionKey(cookieValue?: string | null) {
 }
 
 /** Album statuses in which the client may still change the selection. */
-export const SELECTION_OPEN_STATUSES = ["Draft", "Sent", "Client Selecting"] as const;
+const SELECTION_OPEN_STATUSES = ["Draft", "Sent", "Client Selecting"] as const;
 
 export function isSelectionOpen(status: string) {
   return (SELECTION_OPEN_STATUSES as readonly string[]).includes(status);

@@ -22,7 +22,7 @@ Web chạy 0đ/tháng trên 3 dịch vụ miễn phí: **Vercel Hobby** (web), *
    1. `supabase/migrations/0001_initial.sql`
    2. `supabase/migrations/0002_selection_workflow.sql`
 
-   **Không** chạy `supabase/seed.sql` (file đó tạo tài khoản demo).
+   Không chạy các file trong `scripts/dev/` (chỉ dùng để tạo dữ liệu demo khi chạy trên máy).
 4. Tạo tài khoản của bạn: **Authentication → Users → Add user → Create new user**, nhập email + mật khẩu, tick **Auto Confirm User**. Tài khoản đầu tiên tự động thành chủ web.
 5. Lấy khoá: **Project Settings → API Keys** (hoặc **Data API**), ghi lại:
    - **Project URL** → dùng cho `NEXT_PUBLIC_SUPABASE_URL`
@@ -70,7 +70,6 @@ Web chạy 0đ/tháng trên 3 dịch vụ miễn phí: **Vercel Hobby** (web), *
    | `R2_SECRET_ACCESS_KEY` | Secret Access Key ở bước 2 |
    | `R2_BUCKET` | `family-photos` |
    | `ALLOW_SIGNUP` | `false` |
-   | `SHOW_DEMO_LOGIN` | `false` |
 
 3. Bấm **Deploy**. Xong sẽ có địa chỉ dạng `https://framefolio-app-xxxx.vercel.app`.
 4. Nếu địa chỉ khác với dự kiến: sửa `NEXT_PUBLIC_SITE_URL` (Settings → Environment Variables) rồi **Deployments → ⋯ → Redeploy**, và sửa `AllowedOrigins` trong CORS của R2 cho khớp.
