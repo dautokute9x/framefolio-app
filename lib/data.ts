@@ -1,7 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { PHOTO_BUCKET } from "@/lib/constants";
+import { signReadUrls } from "@/lib/storage";
 import type {
   Album,
   AlbumCardData,
@@ -29,21 +29,11 @@ async function createSignedPhotoUrls(
   const pathFor = (photo: Photo) =>
     preferPreview && photo.preview_path ? photo.preview_path : photo.file_path;
 
-  const admin = createAdminClient();
-  const paths = Array.from(new Set(photos.map(pathFor)));
-  const { data, error } = await admin.storage
-    .from(PHOTO_BUCKET)
-    .createSignedUrls(paths, SIGNED_URL_TTL_SECONDS);
-
-  if (error) {
-    console.error("[storage] createSignedUrls failed", error.message);
-  }
-
-  const urlMap = new Map<string, string | null>();
-  (data ?? []).forEach((row) => {
-    if (!row?.path) return;
-    urlMap.set(row.path, row.signedUrl ?? null);
-  });
+  // Each photo is signed against the backend it was uploaded to (Supabase or R2).
+  const urlMap = await signReadUrls(
+    photos.map((photo) => ({ path: pathFor(photo), storageBucket: photo.storage_bucket })),
+    SIGNED_URL_TTL_SECONDS
+  );
 
   return photos.map((photo) => ({
     ...photo,

@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, Loader2, Trash2, UploadCloud } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { PHOTO_BUCKET } from "@/lib/constants";
-import { makeStoragePathSegment } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import type { PhotoWithUrl } from "@/lib/types";
 
@@ -43,8 +42,39 @@ async function makePreview(file: File) {
   return { blob, width, height };
 }
 
-export function UploadManager({ ownerId, albumId, initialPhotos }: Props) {
+type UploadTarget = {
+  driver: "supabase" | "r2";
+  filePath: string;
+  previewPath: string | null;
+  uploadUrl?: string | null;
+  previewUploadUrl?: string | null;
+};
+
+export function UploadManager({ albumId, initialPhotos }: Props) {
   const supabase = useMemo(() => createClient(), []);
+
+  /** Uploads one blob to Supabase Storage or to an R2 presigned URL. Returns an error message or null. */
+  async function putFile(
+    driver: UploadTarget["driver"],
+    path: string,
+    url: string | null | undefined,
+    body: Blob,
+    contentType: string
+  ): Promise<string | null> {
+    if (driver === "r2") {
+      if (!url) return "Thiếu link upload";
+      try {
+        const response = await fetch(url, { method: "PUT", body, headers: { "Content-Type": contentType } });
+        return response.ok ? null : `Upload lỗi (HTTP ${response.status})`;
+      } catch {
+        return "Không kết nối được kho ảnh (kiểm tra CORS của bucket R2)";
+      }
+    }
+    const { error } = await supabase.storage
+      .from(PHOTO_BUCKET)
+      .upload(path, body, { cacheControl: "31536000", contentType, upsert: false });
+    return error ? error.message : null;
+  }
   const [photos, setPhotos] = useState<PhotoWithUrl[]>(initialPhotos);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [deleting, setDeleting] = useState<Set<string>>(() => new Set());
@@ -81,12 +111,6 @@ export function UploadManager({ ownerId, albumId, initialPhotos }: Props) {
       return;
     }
 
-    const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase();
-    const base = makeStoragePathSegment(file.name.replace(/\.[^.]+$/, "")).slice(0, 80);
-    const unique = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}-${base}`;
-    const filePath = `${ownerId}/${albumId}/${unique}.${ext}`;
-    const previewPath = `${ownerId}/${albumId}/previews/${unique}.jpg`;
-
     let preview: Awaited<ReturnType<typeof makePreview>> | null = null;
     try {
       preview = await makePreview(file);
@@ -94,23 +118,48 @@ export function UploadManager({ ownerId, albumId, initialPhotos }: Props) {
       preview = null; // fall back to the original if the browser cannot decode it
     }
 
-    const { error: uploadError } = await supabase.storage.from(PHOTO_BUCKET).upload(filePath, file, {
-      cacheControl: "31536000",
-      contentType: file.type,
-      upsert: false,
-    });
-    if (uploadError) {
-      update(item.id, { state: "error", message: uploadError.message });
+    // The server picks the storage paths (and, for Cloudflare R2, signs upload URLs).
+    let target: UploadTarget;
+    try {
+      const response = await fetch(`/api/albums/${albumId}/upload-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: file.name,
+          contentType: file.type,
+          size: file.size,
+          previewSize: preview?.blob.size ?? null,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        update(item.id, { state: "error", message: payload.error ?? "Không chuẩn bị được upload" });
+        return;
+      }
+      target = payload as UploadTarget;
+    } catch {
+      update(item.id, { state: "error", message: "Mất kết nối khi chuẩn bị upload" });
+      return;
+    }
+
+    const originalError = await putFile(target.driver, target.filePath, target.uploadUrl, file, file.type);
+    if (originalError) {
+      update(item.id, { state: "error", message: originalError });
       return;
     }
 
     let uploadedPreviewPath: string | null = null;
-    if (preview) {
-      const { error: previewError } = await supabase.storage
-        .from(PHOTO_BUCKET)
-        .upload(previewPath, preview.blob, { cacheControl: "31536000", contentType: "image/jpeg", upsert: false });
-      if (!previewError) uploadedPreviewPath = previewPath;
+    if (preview && target.previewPath) {
+      const previewError = await putFile(
+        target.driver,
+        target.previewPath,
+        target.previewUploadUrl,
+        preview.blob,
+        "image/jpeg"
+      );
+      if (!previewError) uploadedPreviewPath = target.previewPath;
     }
+    const filePath = target.filePath;
 
     // Files go to storage in parallel, but are registered strictly in the
     // order the photographer picked (sorted by file name), so the gallery keeps

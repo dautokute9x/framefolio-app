@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { PHOTO_BUCKET } from "@/lib/constants";
+import { activeDriver, bucketValueForDriver, removeObjects, signReadUrls } from "@/lib/storage";
 
 const postSchema = z.object({
   filePath: z.string().min(1).max(500),
@@ -41,7 +40,7 @@ export async function POST(
   }
 
   const supabase = await createClient();
-  const admin = createAdminClient();
+  const storageBucket = bucketValueForDriver(activeDriver());
 
   const { data: album } = await supabase
     .from("albums")
@@ -62,7 +61,7 @@ export async function POST(
       file_path: body.filePath,
       preview_path: body.previewPath ?? null,
       file_name: body.fileName,
-      storage_bucket: PHOTO_BUCKET,
+      storage_bucket: storageBucket,
       width: body.width ?? null,
       height: body.height ?? null,
       // sort_order is assigned by the `assign_photo_sort_order` trigger
@@ -74,9 +73,10 @@ export async function POST(
 
   if (error || !inserted) {
     // Do not leave orphaned files in storage when registration fails.
-    await admin.storage
-      .from(PHOTO_BUCKET)
-      .remove([body.filePath, ...(body.previewPath ? [body.previewPath] : [])]);
+    await removeObjects(
+      [body.filePath, ...(body.previewPath ? [body.previewPath] : [])],
+      storageBucket
+    ).catch(() => undefined);
     return NextResponse.json({ error: error?.message ?? "Không lưu được ảnh" }, { status: 400 });
   }
 
@@ -84,14 +84,13 @@ export async function POST(
     await supabase.from("albums").update({ cover_photo_id: inserted.id }).eq("id", albumId);
   }
 
-  const { data: signed } = await admin.storage
-    .from(PHOTO_BUCKET)
-    .createSignedUrl(inserted.preview_path ?? inserted.file_path, 60 * 60 * 6);
+  const previewPath = inserted.preview_path ?? inserted.file_path;
+  const signed = await signReadUrls([{ path: previewPath, storageBucket }], 60 * 60 * 6);
 
   return NextResponse.json({
     photo: {
       ...inserted,
-      signedUrl: signed?.signedUrl ?? null,
+      signedUrl: signed.get(previewPath) ?? null,
     },
   });
 }
@@ -130,10 +129,10 @@ export async function DELETE(
   // Only ever delete the paths recorded in the database for this photo. The old
   // code deleted whatever `filePath` the request body contained, using the
   // service role, i.e. any file in the bucket.
-  const admin = createAdminClient();
-  await admin.storage
-    .from(PHOTO_BUCKET)
-    .remove([photo.file_path, ...(photo.preview_path ? [photo.preview_path] : [])]);
+  await removeObjects(
+    [photo.file_path, ...(photo.preview_path ? [photo.preview_path] : [])],
+    photo.storage_bucket
+  ).catch((error) => console.error("[storage] delete failed", error));
 
   const { data: album } = await supabase.from("albums").select("cover_photo_id").eq("id", albumId).single();
   if (!album?.cover_photo_id) {
