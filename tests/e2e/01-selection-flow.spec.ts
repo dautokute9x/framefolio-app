@@ -217,8 +217,13 @@ test("dashboard 'Open album' links open the gallery on this site", async ({ page
 
 test("language switch changes the dashboard to English and back", async ({ page }) => {
   await login(page);
-  await page.getByRole("button", { name: /^en$/i }).first().click();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Albums");
-  await page.getByRole("button", { name: /^vi$/i }).first().click();
+  const vi = page.getByRole("button", { name: /^vi$/i }).first();
+  const en = page.getByRole("button", { name: /^en$/i }).first();
+  await vi.click();
+  await expect(vi).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Album");
+  await expect(en).toBeEnabled();
+  await en.click();
+  await expect(en).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Albums");
 });

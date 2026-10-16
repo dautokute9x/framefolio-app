@@ -9,6 +9,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { JOB_STATUSES } from "@/lib/constants";
 import type { Album, Client } from "@/lib/types";
 
+/** "2026-10-20T16:59:59Z" → "2026-10-20" as seen in Vietnam, for a date input. */
+function toVietnamDate(value?: string | null) {
+  if (!value) return "";
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(value));
+}
+
 function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
     <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
@@ -128,6 +134,9 @@ export async function AlbumEditorForm({
         </Field>
         <Field id="selectionLimit" label={t("selectionLimit")} hint={t("selectionLimitHint")}>
           <Input id="selectionLimit" name="selectionLimit" type="number" min={1} inputMode="numeric" defaultValue={album?.selection_limit ?? ""} />
+        </Field>
+        <Field id="expiresOn" label={t("expiresOn")} hint={t("expiresOnHint")}>
+          <Input id="expiresOn" name="expiresOn" type="date" defaultValue={toVietnamDate(album?.expires_at)} />
         </Field>
       </Section>
 

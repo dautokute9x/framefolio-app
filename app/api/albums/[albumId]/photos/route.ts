@@ -123,7 +123,8 @@ export async function DELETE(
 
   const { error: deleteError } = await supabase.from("photos").delete().eq("id", photo.id);
   if (deleteError) {
-    return NextResponse.json({ error: deleteError.message }, { status: 400 });
+    console.error("photo delete failed", deleteError.message);
+    return await apiError("deleteFailed", 400);
   }
 
   // Only ever delete the paths recorded in the database for this photo. The old

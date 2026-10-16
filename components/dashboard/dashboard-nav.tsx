@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { FolderOpen, Globe, Inbox, Plus } from "lucide-react";
+import { FolderOpen, Globe, Inbox, Plus, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const ITEMS = [
   { href: "/dashboard", key: "albums", icon: FolderOpen, match: (p: string) => p === "/dashboard" || (/^\/dashboard\/albums\/[^/]+/.test(p) && !p.endsWith("/new")) },
   { href: "/dashboard/albums/new", key: "newAlbum", icon: Plus, match: (p: string) => p === "/dashboard/albums/new" },
   { href: "/dashboard/inbox", key: "inbox", icon: Inbox, match: (p: string) => p.startsWith("/dashboard/inbox") },
+  { href: "/dashboard/clients", key: "clients", icon: Users, match: (p: string) => p.startsWith("/dashboard/clients") },
   { href: "/", key: "site", icon: Globe, match: () => false },
 ] as const;
 
@@ -46,7 +47,7 @@ export function DashboardBottomNav({ inboxCount }: { inboxCount: number }) {
   return (
     <nav
       aria-label={t("label")}
-      className="gallery-safe-bottom fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-border bg-background/95 pt-1 backdrop-blur md:hidden"
+      className="gallery-safe-bottom fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-border bg-background/95 pt-1 backdrop-blur md:hidden"
     >
       {ITEMS.map((item) => {
         const active = item.match(pathname);

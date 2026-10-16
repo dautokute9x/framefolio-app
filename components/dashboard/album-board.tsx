@@ -5,7 +5,10 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import {
+  Archive,
+  ArchiveRestore,
   CheckCircle2,
+  Clock,
   Copy,
   ExternalLink,
   Eye,
@@ -13,13 +16,16 @@ import {
   ImageIcon,
   ImageUp,
   Inbox,
+  Link2,
   Lock,
   MoreHorizontal,
   Pencil,
   Search,
   Send,
+  Trash2,
 } from "lucide-react";
 import { AlbumStatusBadge, STATUS_KEY } from "@/components/album-status-badge";
+import { useAlbumManagement } from "@/components/dashboard/album-manage";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -51,9 +57,11 @@ export type BoardAlbum = {
   hasPassword: boolean;
   sharePath: string;
   shareUrl: string;
+  archivedAt: string | null;
+  expiresAt: string | null;
 };
 
-type Filter = "all" | JobStatus;
+type Filter = "all" | JobStatus | "archived";
 
 
 export function AlbumBoard({ albums }: { albums: BoardAlbum[] }) {
@@ -62,19 +70,28 @@ export function AlbumBoard({ albums }: { albums: BoardAlbum[] }) {
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
 
-  const waiting = albums.filter((album) => album.status === "Editing" && album.submittedCount > 0);
-  const empty = albums.filter((album) => album.photoCount === 0);
+  // Archived albums only show under their own filter.
+  const active = useMemo(() => albums.filter((album) => !album.archivedAt), [albums]);
+  const archivedCount = albums.length - active.length;
+  const waiting = active.filter((album) => album.status === "Editing" && album.submittedCount > 0);
+  const empty = active.filter((album) => album.photoCount === 0);
 
   const counts = useMemo(() => {
-    const map = new Map<Filter, number>([["all", albums.length]]);
-    for (const status of JOB_STATUSES) map.set(status, albums.filter((album) => album.status === status).length);
+    const map = new Map<Filter, number>([["all", active.length], ["archived", archivedCount]]);
+    for (const status of JOB_STATUSES) map.set(status, active.filter((album) => album.status === status).length);
     return map;
-  }, [albums]);
+  }, [active, archivedCount]);
+
+  const filters: Filter[] = ["all", ...JOB_STATUSES, ...(archivedCount ? (["archived"] as const) : [])];
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
     return albums.filter((album) => {
-      if (filter !== "all" && album.status !== filter) return false;
+      if (filter === "archived") {
+        if (!album.archivedAt) return false;
+      } else if (album.archivedAt || (filter !== "all" && album.status !== filter)) {
+        return false;
+      }
       if (!q) return true;
       const haystack = `${album.title} ${album.clientName ?? ""}`.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
       return haystack.includes(q);
@@ -128,7 +145,7 @@ export function AlbumBoard({ albums }: { albums: BoardAlbum[] }) {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0" role="tablist" aria-label={t("filterLabel")}>
-          {(["all", ...JOB_STATUSES] as Filter[]).map((key) => (
+          {filters.map((key) => (
             <button
               key={key}
               type="button"
@@ -140,7 +157,7 @@ export function AlbumBoard({ albums }: { albums: BoardAlbum[] }) {
                 filter === key ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground"
               )}
             >
-              {key === "all" ? t("filterAll") : tStatus(STATUS_KEY[key])}
+              {key === "all" ? t("filterAll") : key === "archived" ? t("filterArchived") : tStatus(STATUS_KEY[key])}
               <span className="ml-1.5 text-xs opacity-70">{counts.get(key) ?? 0}</span>
             </button>
           ))}
@@ -175,7 +192,11 @@ function AlbumCard({ album }: { album: BoardAlbum }) {
   const t = useTranslations("dashboard");
   const tStatus = useTranslations("status");
   const locale = useLocale();
-  const [pending, startTransition] = useTransition();
+  const [statusPending, startTransition] = useTransition();
+  const manage = useAlbumManagement({ id: album.id, title: album.title, photoCount: album.photoCount });
+  const pending = statusPending || manage.pending;
+  const archived = !!album.archivedAt;
+  const expired = !!album.expiresAt && new Date(album.expiresAt) <= new Date();
 
   const setStatus = (status: JobStatus, message?: string) =>
     startTransition(async () => {
@@ -196,6 +217,7 @@ function AlbumCard({ album }: { album: BoardAlbum }) {
 
   // One clear next step per album, depending on where it is in the workflow.
   const primary = (() => {
+    if (archived) return { label: t("actions.restore"), icon: ArchiveRestore, onClick: () => manage.archive(false) };
     if (album.photoCount === 0)
       return { label: t("actions.upload"), icon: ImageUp, href: `/dashboard/albums/${album.id}/upload` };
     if (album.status === "Draft") return { label: t("actions.sendToClient"), icon: Send, onClick: sendToClient };
@@ -207,7 +229,7 @@ function AlbumCard({ album }: { album: BoardAlbum }) {
   })();
 
   return (
-    <article className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+    <article className={cn("flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm", archived && "opacity-80")}>
       <Link href={`/dashboard/albums/${album.id}/upload`} className="relative block aspect-[3/2] bg-secondary" aria-label={album.title}>
         {album.coverUrl ? (
           <img src={album.coverUrl} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
@@ -217,7 +239,20 @@ function AlbumCard({ album }: { album: BoardAlbum }) {
           </span>
         )}
         <span className="absolute left-3 top-3 flex items-center gap-1.5">
-          <AlbumStatusBadge status={album.status} className="shadow-sm" />
+          {archived ? (
+            <span className="inline-flex h-6 items-center gap-1 rounded-full bg-foreground/80 px-2.5 text-xs font-medium text-background shadow-sm">
+              <Archive className="h-3 w-3" />
+              {t("archivedBadge")}
+            </span>
+          ) : (
+            <AlbumStatusBadge status={album.status} className="shadow-sm" />
+          )}
+          {expired && !archived ? (
+            <span className="inline-flex h-6 items-center gap-1 rounded-full bg-red-600 px-2.5 text-xs font-medium text-white shadow-sm">
+              <Clock className="h-3 w-3" />
+              {t("expired")}
+            </span>
+          ) : null}
           {album.visibility === "private" ? (
             <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-foreground shadow-sm" title={t("private")}>
               <Lock className="h-3.5 w-3.5" />
@@ -233,8 +268,14 @@ function AlbumCard({ album }: { album: BoardAlbum }) {
             <p className="truncate text-sm text-muted-foreground">
               {[album.clientName, album.eventDate ? formatDate(album.eventDate, locale) : null].filter(Boolean).join(" · ") || t("noClient")}
             </p>
+            {album.expiresAt && !expired ? (
+              <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                <Clock className="h-3 w-3" />
+                {t("expiresOn", { date: formatDate(album.expiresAt, locale) })}
+              </p>
+            ) : null}
           </div>
-          <DropdownMenu>
+          <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="-mr-2 -mt-1 shrink-0" aria-label={t("actions.more")} disabled={pending}>
                 <MoreHorizontal className="h-5 w-5" />
@@ -255,12 +296,24 @@ function AlbumCard({ album }: { album: BoardAlbum }) {
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => void copyLink()}><Copy />{t("actions.copyLink")}</DropdownMenuItem>
               <DropdownMenuSeparator />
-              {JOB_STATUSES.filter((status) => status !== album.status).map((status) => (
-                <DropdownMenuItem key={status} onSelect={() => setStatus(status)}>
-                  <CheckCircle2 />
-                  {t("actions.markAs", { status: tStatus(STATUS_KEY[status]) })}
-                </DropdownMenuItem>
-              ))}
+              {archived
+                ? null
+                : JOB_STATUSES.filter((status) => status !== album.status).map((status) => (
+                    <DropdownMenuItem key={status} onSelect={() => setStatus(status)}>
+                      <CheckCircle2 />
+                      {t("actions.markAs", { status: tStatus(STATUS_KEY[status]) })}
+                    </DropdownMenuItem>
+                  ))}
+              {archived ? null : <DropdownMenuSeparator />}
+              <DropdownMenuItem onSelect={manage.requestReset}><Link2 />{t("actions.resetLink")}</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => manage.archive(!archived)}>
+                {archived ? <ArchiveRestore /> : <Archive />}
+                {archived ? t("actions.restore") : t("actions.archive")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={manage.requestDelete} className="text-destructive focus:text-destructive">
+                <Trash2 />
+                {t("actions.delete")}
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -287,6 +340,7 @@ function AlbumCard({ album }: { album: BoardAlbum }) {
           )}
         </div>
       </div>
+      {manage.dialogs}
     </article>
   );
 }

@@ -4,7 +4,8 @@ import { getTranslations } from "next-intl/server";
 import { AlbumEditorForm } from "@/components/dashboard/album-editor-form";
 import { AlbumTabs } from "@/components/dashboard/album-tabs";
 import { requireAdminProfile } from "@/lib/auth";
-import { getAlbumForOwner, getOwnerClients } from "@/lib/data";
+import { AlbumManagePanel } from "@/components/dashboard/album-manage";
+import { getAlbumForOwner, getAlbumPhotoCount, getOwnerClients } from "@/lib/data";
 import { updateAlbumAction } from "@/app/dashboard/albums/actions";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -21,13 +22,18 @@ export default async function EditAlbumPage({
 }) {
   const [{ albumId }, { error }] = await Promise.all([params, searchParams]);
   const profile = await requireAdminProfile();
-  const [album, clients] = await Promise.all([getAlbumForOwner(albumId, profile.id), getOwnerClients(profile.id)]);
+  const [album, clients, photoCount] = await Promise.all([
+    getAlbumForOwner(albumId, profile.id),
+    getOwnerClients(profile.id),
+    getAlbumPhotoCount(albumId),
+  ]);
   if (!album) notFound();
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
       <AlbumTabs album={album} active="edit" />
       <AlbumEditorForm action={updateAlbumAction} album={album} clients={clients} error={error} />
+      <AlbumManagePanel album={{ id: album.id, title: album.title, photoCount }} archived={!!album.archived_at} />
     </div>
   );
 }

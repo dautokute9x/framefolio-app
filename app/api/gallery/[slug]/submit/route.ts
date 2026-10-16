@@ -1,8 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { apiError } from "@/lib/api-error";
 import { z } from "zod";
 import { isSelectionOpen } from "@/lib/album-access";
 import { guardGalleryRequest } from "@/lib/gallery-guard";
+import { notifySelectionSubmitted } from "@/lib/notify";
+import { getSiteOrigin } from "@/lib/site-url";
 
 const bodySchema = z.object({
   shareToken: z.string().max(100).nullish(),
@@ -82,6 +84,20 @@ export async function POST(
 
   await admin.from("albums").update({ status: "Editing" }).eq("id", album.id);
   persistSelectionKey();
+
+  // Tell the photographer by email (optional, after the response is sent).
+  const { origin } = await getSiteOrigin();
+  after(() =>
+    notifySelectionSubmitted({
+      ownerId: album.owner_id,
+      albumId: album.id,
+      albumTitle: album.title,
+      clientName: body.selectorName,
+      note: body.note || null,
+      count,
+      origin,
+    }).catch((err) => console.error("[notify] failed", err))
+  );
 
   return NextResponse.json({ ok: true, count, submittedAt });
 }

@@ -2,6 +2,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { apiError } from "@/lib/api-error";
 import {
+  albumAvailability,
   getSelectionCookieName,
   getSelectionKey,
   hasAlbumPasswordAccess,
@@ -12,7 +13,16 @@ import type { Album } from "@/lib/types";
 
 export type GuardedAlbum = Pick<
   Album,
-  "id" | "visibility" | "share_token" | "password_hash" | "status" | "selection_limit"
+  | "id"
+  | "owner_id"
+  | "title"
+  | "visibility"
+  | "share_token"
+  | "password_hash"
+  | "status"
+  | "selection_limit"
+  | "archived_at"
+  | "expires_at"
 >;
 
 /**
@@ -23,14 +33,17 @@ export async function guardGalleryRequest(slug: string, shareToken?: string | nu
   const admin = createAdminClient();
   const { data } = await admin
     .from("albums")
-    .select("id, visibility, share_token, password_hash, status, selection_limit")
+    .select("*")
     .eq("slug", slug)
     .maybeSingle();
 
   const album = data as GuardedAlbum | null;
 
-  if (!album || !isShareTokenValid(album, shareToken)) {
+  if (!album || !isShareTokenValid(album, shareToken) || albumAvailability(album) === "archived") {
     return { error: await apiError("albumNotFound", 404) } as const;
+  }
+  if (albumAvailability(album) === "expired") {
+    return { error: await apiError("albumExpired", 410) } as const;
   }
 
   if (!(await hasAlbumPasswordAccess(album))) {

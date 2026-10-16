@@ -58,7 +58,7 @@ components/          dashboard/, gallery/, marketing/, ui/ (shadcn)
 lib/                 data access, auth, storage (Supabase/R2), env, helpers
 supabase/
   config.toml        local Supabase for development and CI
-  migrations/        0001_initial.sql, 0002_selection_workflow.sql
+  migrations/        0001_initial.sql, 0002_selection_workflow.sql, 0003_album_lifecycle.sql
 scripts/dev/         demo data for local development only (never run in production)
 tests/
   unit/              Vitest
@@ -138,6 +138,7 @@ Open the Supabase SQL editor and run, in order:
 
 - `supabase/migrations/0001_initial.sql`
 - `supabase/migrations/0002_selection_workflow.sql` (previews, selection limit, client submit, single-admin sign-up, photo ordering)
+- `supabase/migrations/0003_album_lifecycle.sql` (archive, link expiry, drag-and-drop photo order; stops keeping visitor IPs)
 - (local development only) `scripts/dev/seed.sql`
 
 This creates:
