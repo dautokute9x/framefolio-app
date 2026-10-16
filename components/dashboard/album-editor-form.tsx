@@ -138,6 +138,15 @@ export async function AlbumEditorForm({
         <Field id="expiresOn" label={t("expiresOn")} hint={t("expiresOnHint")}>
           <Input id="expiresOn" name="expiresOn" type="date" defaultValue={toVietnamDate(album?.expires_at)} />
         </Field>
+        <div className="sm:col-span-2">
+          <label className="flex items-start gap-3 rounded-xl border border-border p-4">
+            <input type="checkbox" name="allowDownload" defaultChecked={album?.allow_download === true} className="mt-0.5 h-4 w-4" />
+            <span>
+              <span className="block text-sm font-medium">{t("allowDownload")}</span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">{t("allowDownloadHint")}</span>
+            </span>
+          </label>
+        </div>
       </Section>
 
       {album ? (

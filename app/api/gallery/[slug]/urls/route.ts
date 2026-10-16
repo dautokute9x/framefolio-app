@@ -3,6 +3,7 @@ import { z } from "zod";
 import { apiError } from "@/lib/api-error";
 import { signGalleryPhotos } from "@/lib/data";
 import { guardGalleryRequest } from "@/lib/gallery-guard";
+import { rateLimit, visitorKey } from "@/lib/rate-limit";
 
 const bodySchema = z.object({
   ids: z.array(z.string().uuid()).min(1).max(100),
@@ -17,6 +18,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
 
   const guard = await guardGalleryRequest(slug, parsed.data.shareToken);
   if ("error" in guard) return guard.error;
+  if (!(await rateLimit(`urls:${guard.album.id}:${await visitorKey()}`, 400, 10 * 60))) {
+    return await apiError("tooManyRequests", 429);
+  }
 
   const urls = await signGalleryPhotos(guard.album.id, [...new Set(parsed.data.ids)]);
   return NextResponse.json({ urls }, { headers: { "Cache-Control": "private, no-store" } });

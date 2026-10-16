@@ -3,7 +3,9 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { apiError } from "@/lib/api-error";
 import { z } from "zod";
+import { rateLimit, visitorKey } from "@/lib/rate-limit";
 import {
+  albumAvailability,
   createAlbumAccessCookieValue,
   getAlbumAccessCookieName,
   isShareTokenValid,
@@ -29,16 +31,28 @@ export async function POST(
 
   const { data: album } = await admin
     .from("albums")
-    .select("id, visibility, share_token, password_hash")
+    .select("*")
     .eq("slug", slug)
     .maybeSingle();
 
-  if (!album || !isShareTokenValid(album, body.shareToken)) {
+  if (!album || !isShareTokenValid(album, body.shareToken) || albumAvailability(album) === "archived") {
     return await apiError("albumNotFound", 404);
+  }
+  if (albumAvailability(album) === "expired") {
+    return await apiError("albumExpired", 410);
   }
 
   if (!album.password_hash) {
     return NextResponse.json({ ok: true });
+  }
+
+  // At most 10 tries per visitor and 100 per album every 15 minutes.
+  const visitor = await visitorKey();
+  const allowed =
+    (await rateLimit(`unlock:${album.id}:${visitor}`, 10, 15 * 60)) &&
+    (await rateLimit(`unlock:${album.id}`, 100, 15 * 60));
+  if (!allowed) {
+    return await apiError("tooManyAttempts", 429);
   }
 
   const valid = await bcrypt.compare(body.password, album.password_hash);

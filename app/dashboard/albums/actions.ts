@@ -126,6 +126,7 @@ export async function createAlbumAction(formData: FormData) {
     event_date: payload.event_date,
     selection_limit: payload.selection_limit,
     ...(payload.expires_at ? { expires_at: payload.expires_at } : {}),
+    ...(formData.get("allowDownload") === "on" ? { allow_download: true } : {}),
     password_hash: payload.password ? await bcrypt.hash(payload.password, 10) : null,
   };
 
@@ -174,6 +175,10 @@ export async function updateAlbumAction(formData: FormData) {
     // Only touch expires_at when there is something to set or clear, so editing
     // keeps working on a database that has not run migration 0003 yet.
     ...(payload.expires_at || existing.expires_at ? { expires_at: payload.expires_at } : {}),
+    // Same for allow_download (migration 0004).
+    ...(formData.get("allowDownload") === "on" || existing.allow_download
+      ? { allow_download: formData.get("allowDownload") === "on" }
+      : {}),
     ...(payload.status === "Delivered" && !existing.delivered_at
       ? { delivered_at: new Date().toISOString() }
       : {}),

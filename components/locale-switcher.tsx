@@ -1,17 +1,14 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
-import { LOCALES } from "@/i18n/config";
-import { setLocaleAction } from "@/lib/locale-actions";
+import { LOCALE_COOKIE, LOCALES } from "@/i18n/config";
 import { cn } from "@/lib/utils";
 
 export function LocaleSwitcher({ className, tone = "light" }: { className?: string; tone?: "light" | "dark" }) {
   const t = useTranslations("common");
   const locale = useLocale();
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
 
   return (
     <div
@@ -32,10 +29,11 @@ export function LocaleSwitcher({ className, tone = "light" }: { className?: stri
           disabled={pending}
           onClick={() => {
             if (code === locale) return;
-            startTransition(async () => {
-              await setLocaleAction(code);
-              router.refresh();
-            });
+            // Save the choice and reload: a soft router.refresh() occasionally never
+            // committed after a locale change, leaving the page half-translated.
+            document.cookie = `${LOCALE_COOKIE}=${code}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
+            setPending(true);
+            window.location.reload();
           }}
           className={cn(
             "h-8 min-w-10 rounded-full px-2.5 uppercase tracking-wide transition",

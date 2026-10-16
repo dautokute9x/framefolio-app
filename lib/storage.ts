@@ -117,6 +117,31 @@ export async function signReadUrls(
   return result;
 }
 
+/** Short-lived URL that downloads the original under its own file name. */
+export async function signDownloadUrl(
+  path: string,
+  storageBucket: string | null | undefined,
+  fileName: string,
+  expiresIn = 300
+) {
+  if (driverForBucket(storageBucket) === "r2") {
+    return getSignedUrl(
+      r2(),
+      new GetObjectCommand({
+        Bucket: r2Bucket(),
+        Key: path,
+        ResponseContentDisposition: `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+      }),
+      { expiresIn }
+    );
+  }
+  const { data, error } = await createAdminClient()
+    .storage.from(PHOTO_BUCKET)
+    .createSignedUrl(path, expiresIn, { download: fileName });
+  if (error) console.error("[storage] download sign failed", error.message);
+  return data?.signedUrl ?? null;
+}
+
 export async function removeObjects(paths: string[], storageBucket: string | null | undefined) {
   if (!paths.length) return;
   if (driverForBucket(storageBucket) === "r2") {

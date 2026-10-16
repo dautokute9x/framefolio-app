@@ -57,6 +57,8 @@ export default async function SelectionResultsPage({ params }: { params: Promise
         // Base names without extension, comma separated: paste into the
         // Lightroom / Bridge filename filter to isolate the picked frames.
         const lightroomFilter = fileNames.map((name) => name.replace(/\.[^.]+$/, "")).join(", ");
+        const withNotes = group.photos.filter((photo) => photo.comment);
+        const notesText = withNotes.map((photo) => `${photo.file_name}: ${photo.comment}`).join("\n");
 
         return (
           <section key={group.selectionKey} className="rounded-2xl border border-border bg-card p-4 sm:p-5" data-selection-group>
@@ -76,6 +78,9 @@ export default async function SelectionResultsPage({ params }: { params: Promise
               <div className="flex flex-wrap gap-2">
                 <CopyShareButton value={fileNames.join("\n")} label={t("copyFileNames")} copiedLabel={t("copied")} variant="outline" />
                 <CopyShareButton value={lightroomFilter} label={t("copyLightroom")} copiedLabel={t("copied")} variant="outline" />
+                {withNotes.length ? (
+                  <CopyShareButton value={notesText} label={t("copyNotes", { count: withNotes.length })} copiedLabel={t("copied")} variant="outline" />
+                ) : null}
               </div>
             </div>
             {group.session?.note ? (
@@ -92,7 +97,14 @@ export default async function SelectionResultsPage({ params }: { params: Promise
                       <img src={photo.signedUrl} alt={photo.file_name} loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
                     ) : null}
                   </div>
-                  <figcaption className="truncate px-2 py-1.5 text-[11px] text-muted-foreground">{photo.file_name}</figcaption>
+                  <figcaption className="px-2 py-1.5 text-[11px]">
+                    <span className="block truncate text-muted-foreground">{photo.file_name}</span>
+                    {photo.comment ? (
+                      <span className="mt-1 block whitespace-pre-line rounded-md bg-amber-50 px-1.5 py-1 text-amber-900" data-photo-comment>
+                        {photo.comment}
+                      </span>
+                    ) : null}
+                  </figcaption>
                 </figure>
               ))}
             </div>

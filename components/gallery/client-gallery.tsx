@@ -3,7 +3,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Check, ChevronLeft, ChevronRight, Heart, Loader2, Lock, Send, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Download, Heart, Loader2, Lock, MessageSquare, Send, X } from "lucide-react";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ThemeToggle } from "@/components/gallery/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -110,6 +110,7 @@ export function ClientGallery({
   album,
   photos,
   initiallySelected,
+  initialComments = {},
   shareToken,
   selectionOpen,
   initialSession,
@@ -117,6 +118,7 @@ export function ClientGallery({
   album: PublicAlbum;
   photos: GalleryPhoto[];
   initiallySelected: string[];
+  initialComments?: Record<string, string>;
   shareToken?: string | null;
   selectionOpen: boolean;
   initialSession: SessionInfo | null;
@@ -128,6 +130,7 @@ export function ClientGallery({
   const [toast, setToast] = useState<string>("");
   const [viewer, setViewer] = useState<{ ids: string[]; index: number } | null>(null);
   const [submitOpen, setSubmitOpen] = useState(false);
+  const [comments, setComments] = useState<Record<string, string>>(initialComments);
   const [locked, setLocked] = useState(!selectionOpen);
   const [session, setSession] = useState<SessionInfo>(
     initialSession ?? { selectorName: "", selectorEmail: "", note: "", submittedAt: null }
@@ -207,6 +210,15 @@ export function ClientGallery({
             selectorEmail: session.selectorEmail || undefined,
           }),
         });
+        if (response.ok && !shouldSelect) {
+          // The pick is gone, and its note with it.
+          setComments((current) => {
+            if (!(photoId in current)) return current;
+            const next = { ...current };
+            delete next[photoId];
+            return next;
+          });
+        }
         if (!response.ok) {
           const payload = await response.json().catch(() => ({}));
           setPhotoSelected(photoId, !shouldSelect);
@@ -221,6 +233,37 @@ export function ClientGallery({
       }
     },
     [album.slug, setPhotoPending, setPhotoSelected, shareToken, showToast]
+  );
+
+  const saveComment = useCallback(
+    async (photoId: string, text: string) => {
+      const { t } = stateRef.current;
+      try {
+        const response = await fetch(`/api/gallery/${album.slug}/comment`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ photoId, comment: text, shareToken }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          if (response.status === 423) setLocked(true);
+          showToast(payload.error ?? t("saveFailed"));
+          return false;
+        }
+        setComments((current) => {
+          const next = { ...current };
+          if (payload.comment) next[photoId] = payload.comment;
+          else delete next[photoId];
+          return next;
+        });
+        showToast(t("noteSaved"));
+        return true;
+      } catch {
+        showToast(t("offline"));
+        return false;
+      }
+    },
+    [album.slug, shareToken, showToast]
   );
 
   // One observer for every tile: ask for URLs shortly before tiles scroll into view.
@@ -392,7 +435,11 @@ export function ClientGallery({
       {toast ? (
         <div
           role="status"
-          className="fixed inset-x-4 bottom-24 z-[60] mx-auto max-w-md rounded-xl bg-foreground px-4 py-3 text-center text-sm text-background shadow-lg"
+          // Above the viewer's controls when a photo is open, above the bottom bar otherwise.
+          className={cn(
+            "fixed inset-x-4 z-[60] mx-auto max-w-md rounded-xl bg-foreground px-4 py-3 text-center text-sm text-background shadow-lg",
+            viewer ? "top-16" : "bottom-24"
+          )}
         >
           {toast}
         </div>
@@ -414,6 +461,14 @@ export function ClientGallery({
           onIndex={(index) => setViewer((current) => (current ? { ...current, index } : current))}
           onClose={() => setViewer(null)}
           onToggle={toggle}
+          comments={comments}
+          canComment={!locked}
+          onSaveComment={saveComment}
+          downloadHref={
+            album.allow_download
+              ? (id: string) => `/api/gallery/${album.slug}/download/${id}${shareToken ? `?share=${encodeURIComponent(shareToken)}` : ""}`
+              : null
+          }
         />
       ) : null}
 
@@ -548,6 +603,10 @@ function Viewer({
   onIndex,
   onClose,
   onToggle,
+  comments,
+  canComment,
+  onSaveComment,
+  downloadHref,
 }: {
   ids: string[];
   index: number;
@@ -563,9 +622,17 @@ function Viewer({
   onIndex: (index: number) => void;
   onClose: () => void;
   onToggle: (photoId: string) => Promise<void>;
+  comments: Record<string, string>;
+  canComment: boolean;
+  onSaveComment: (photoId: string, text: string) => Promise<boolean>;
+  downloadHref: ((photoId: string) => string) | null;
 }) {
   const t = useTranslations("gallery");
   const photoId = ids[index];
+  const comment = comments[photoId] ?? "";
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
   const photo = photoById.get(photoId);
   const url = urls[photoId];
   const isSelected = selected.has(photoId);
@@ -589,6 +656,12 @@ function Viewer({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      // Typing a note must not flip photos or toggle the selection.
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) {
+        if (event.key === "Escape") setEditing(false);
+        return;
+      }
       if (event.key === "Escape") onClose();
       else if (event.key === "ArrowRight") go(1);
       else if (event.key === "ArrowLeft") go(-1);
@@ -600,6 +673,9 @@ function Viewer({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [go, onClose, onToggle, photoId]);
+
+  // A half-typed note belongs to the photo it was typed on.
+  useEffect(() => setEditing(false), [photoId]);
 
   // Lock page scroll and hand focus back to where it was on close.
   useEffect(() => {
@@ -677,30 +753,85 @@ function Viewer({
         </button>
       </div>
 
-      <div className="gallery-safe-bottom relative flex items-center justify-center px-4 py-4">
-        <p className="absolute left-6 hidden text-xs text-white/50 lg:block">{t("keyboardHint")}</p>
-        <button
-          type="button"
-          onClick={() => void onToggle(photoId)}
-          aria-pressed={isSelected}
-          className={cn(
-            "flex h-12 items-center gap-2 rounded-full px-6 text-sm font-medium transition active:scale-95",
-            isSelected ? "bg-white text-black" : "bg-white/15 text-white hover:bg-white/25"
-          )}
-        >
-          {pending.has(photoId) ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
-          ) : isSelected ? (
-            <Check className="h-5 w-5" />
-          ) : (
-            <Heart className="h-5 w-5" />
-          )}
-          {isSelected ? t("selected") : t("selectThis")}
-          <span className="text-xs opacity-70">
-            ({count}
-            {limit ? `/${limit}` : ""})
-          </span>
-        </button>
+      <div className="gallery-safe-bottom px-4 py-3">
+        {isSelected && (comment || canComment) ? (
+          <div className="mx-auto mb-3 max-w-xl">
+            {editing ? (
+              <form
+                className="flex gap-2"
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  setSavingNote(true);
+                  const ok = await onSaveComment(photoId, draft);
+                  setSavingNote(false);
+                  if (ok) setEditing(false);
+                }}
+              >
+                <input
+                  autoFocus
+                  value={draft}
+                  maxLength={500}
+                  onChange={(event) => setDraft(event.target.value)}
+                  placeholder={t("notePlaceholderPhoto")}
+                  aria-label={t("notePlaceholderPhoto")}
+                  className="h-11 min-w-0 flex-1 rounded-full border border-white/20 bg-white/10 px-4 text-sm text-white placeholder:text-white/50"
+                />
+                <button type="submit" disabled={savingNote} className="h-11 rounded-full bg-white px-4 text-sm font-medium text-black disabled:opacity-60">
+                  {savingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : t("saveNote")}
+                </button>
+              </form>
+            ) : (
+              <button
+                type="button"
+                disabled={!canComment}
+                onClick={() => {
+                  setDraft(comment);
+                  setEditing(true);
+                }}
+                className="flex w-full items-center gap-2 rounded-2xl bg-white/10 px-4 py-2.5 text-left text-sm text-white/85 transition hover:bg-white/15 disabled:cursor-default"
+                data-photo-note
+              >
+                <MessageSquare className="h-4 w-4 shrink-0" />
+                <span className="truncate">{comment || t("addNote")}</span>
+              </button>
+            )}
+          </div>
+        ) : null}
+        <div className="relative flex items-center justify-center gap-2">
+          <p className="absolute left-2 hidden text-xs text-white/50 lg:block">{t("keyboardHint")}</p>
+          <button
+            type="button"
+            onClick={() => void onToggle(photoId)}
+            aria-pressed={isSelected}
+            className={cn(
+              "flex h-12 items-center gap-2 rounded-full px-6 text-sm font-medium transition active:scale-95",
+              isSelected ? "bg-white text-black" : "bg-white/15 text-white hover:bg-white/25"
+            )}
+          >
+            {pending.has(photoId) ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : isSelected ? (
+              <Check className="h-5 w-5" />
+            ) : (
+              <Heart className="h-5 w-5" />
+            )}
+            {isSelected ? t("selected") : t("selectThis")}
+            <span className="text-xs opacity-70">
+              ({count}
+              {limit ? `/${limit}` : ""})
+            </span>
+          </button>
+          {downloadHref ? (
+            <a
+              href={downloadHref(photoId)}
+              aria-label={t("download")}
+              title={t("download")}
+              className="flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-white transition hover:bg-white/25"
+            >
+              <Download className="h-5 w-5" />
+            </a>
+          ) : null}
+        </div>
       </div>
     </div>
   );
