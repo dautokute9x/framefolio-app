@@ -5,18 +5,30 @@ import { CopyShareButton } from "@/components/copy-share-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { requireAdminProfile } from "@/lib/auth";
-import { buildShareLink, getDashboardAlbums, getDashboardSummary } from "@/lib/data";
+import { buildShareLink, buildSharePath, getDashboardAlbums, getDashboardSummary } from "@/lib/data";
+import { getSiteOrigin } from "@/lib/site-url";
 import { formatDate } from "@/lib/utils";
 
 export default async function DashboardPage() {
   const profile = await requireAdminProfile();
-  const [summary, albums] = await Promise.all([
+  const [summary, albums, site] = await Promise.all([
     getDashboardSummary(profile.id),
     getDashboardAlbums(profile.id),
+    getSiteOrigin(),
   ]);
 
   return (
     <div className="space-y-6">
+      {site.mismatch ? (
+        <div role="alert" className="rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-sm text-amber-900">
+          <p className="font-medium">Link gửi khách đang dùng tên miền khác với web bạn đang mở.</p>
+          <p className="mt-1">
+            Link chia sẻ dùng <strong>{site.configured}</strong> (biến NEXT_PUBLIC_SITE_URL), còn bạn đang mở{" "}
+            <strong>{site.current}</strong>. Nếu khách mở link bị lỗi, hãy sửa NEXT_PUBLIC_SITE_URL trên Vercel thành
+            địa chỉ chính của web rồi Redeploy.
+          </p>
+        </div>
+      ) : null}
       <section className="grid gap-4 xl:grid-cols-3">
         {[
           { label: "Albums", value: summary.albumCount, icon: FolderOpen },
@@ -50,7 +62,7 @@ export default async function DashboardPage() {
 
         <div className="divide-y divide-border">
           {albums.map((album) => {
-            const shareUrl = buildShareLink(album);
+            const shareUrl = buildShareLink(album, site.origin);
 
             return (
               <div key={album.id} className="grid gap-5 px-6 py-5 xl:grid-cols-[minmax(0,1fr)_300px]">
@@ -82,7 +94,8 @@ export default async function DashboardPage() {
                       <Link href={`/dashboard/albums/${album.id}/selections`}>Review selections</Link>
                     </Button>
                     <Button asChild variant="ghost" size="sm">
-                      <Link href={shareUrl} target="_blank">
+                      {/* Relative link: always opens on the site the photographer is using. */}
+                      <Link href={buildSharePath(album)} target="_blank">
                         Open gallery
                         <ExternalLink className="ml-2 h-4 w-4" />
                       </Link>
