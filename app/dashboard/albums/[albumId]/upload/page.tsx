@@ -22,7 +22,7 @@ export default async function UploadPage({ params }: { params: Promise<{ albumId
   return (
     <div className="space-y-6">
       <AlbumTabs album={album} active="upload" />
-      <UploadManager albumId={albumId} initialPhotos={photos} />
+      <UploadManager albumId={albumId} initialPhotos={photos} coverPhotoId={album.cover_photo_id} />
     </div>
   );
 }

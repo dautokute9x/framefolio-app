@@ -3,8 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { AlertCircle, CheckCircle2, Loader2, Trash2, UploadCloud } from "lucide-react";
+import { AlertCircle, ArrowUpDown, CheckCircle2, Loader2, Star, Trash2, UploadCloud } from "lucide-react";
+import { PhotoArranger } from "@/components/dashboard/photo-arranger";
 import { ConfirmDialog } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { setCoverPhoto } from "@/app/dashboard/albums/actions";
 import { createClient } from "@/lib/supabase/client";
 import { PHOTO_BUCKET } from "@/lib/constants";
 import type { PhotoWithUrl } from "@/lib/types";
@@ -12,6 +15,7 @@ import type { PhotoWithUrl } from "@/lib/types";
 type Props = {
   albumId: string;
   initialPhotos: PhotoWithUrl[];
+  coverPhotoId: string | null;
 };
 
 type QueueItem = {
@@ -51,10 +55,24 @@ type UploadTarget = {
   previewUploadUrl?: string | null;
 };
 
-export function UploadManager({ albumId, initialPhotos }: Props) {
+export function UploadManager({ albumId, initialPhotos, coverPhotoId }: Props) {
   const t = useTranslations("upload");
   const supabase = useMemo(() => createClient(), []);
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [arranging, setArranging] = useState(false);
+  const [coverId, setCoverId] = useState<string | null>(coverPhotoId);
+
+  async function chooseCover(photoId: string) {
+    const next = coverId === photoId ? null : photoId;
+    const previous = coverId;
+    setCoverId(next);
+    const result = await setCoverPhoto(albumId, next);
+    if (result.ok) toast.success(next ? t("cover.set") : t("cover.cleared"));
+    else {
+      setCoverId(previous);
+      toast.error(t("cover.error"));
+    }
+  }
 
   /** Uploads one blob to Supabase Storage or to an R2 presigned URL. Returns an error message or null. */
   async function putFile(
@@ -250,6 +268,7 @@ export function UploadManager({ albumId, initialPhotos }: Props) {
       });
       if (response.ok) {
         setPhotos((current) => current.filter((photo) => photo.id !== photoId));
+        setCoverId((current) => (current === photoId ? null : current));
         toast.success(t("toast.deleted"));
       } else {
         const payload = await response.json().catch(() => ({}));
@@ -323,31 +342,74 @@ export function UploadManager({ albumId, initialPhotos }: Props) {
         </div>
       ) : null}
 
-      <p className="text-sm text-muted-foreground">{t("count", { count: photos.length })}</p>
+      {arranging ? (
+        <PhotoArranger
+          albumId={albumId}
+          photos={photos}
+          onDone={(ordered) => {
+            if (ordered) setPhotos(ordered);
+            setArranging(false);
+          }}
+        />
+      ) : (
+        <>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">{t("count", { count: photos.length })}</p>
+            {photos.length > 1 ? (
+              <Button type="button" variant="outline" size="sm" onClick={() => setArranging(true)} disabled={uploading}>
+                <ArrowUpDown className="h-4 w-4" />
+                {t("arrange.start")}
+              </Button>
+            ) : null}
+          </div>
 
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 sm:gap-3 lg:grid-cols-6">
-        {photos.map((photo) => (
-          <figure key={photo.id} className="group relative overflow-hidden rounded-xl bg-secondary">
-            <div className="relative aspect-square">
-              {photo.signedUrl ? (
-                <img src={photo.signedUrl} alt={photo.file_name} loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
-              ) : (
-                <div className="flex h-full items-center justify-center p-2 text-center text-xs text-muted-foreground">{t("noPreview")}</div>
-              )}
-            </div>
-            <figcaption className="truncate px-2 py-1.5 text-[11px] text-muted-foreground">{photo.file_name}</figcaption>
-            <button
-              type="button"
-              onClick={() => setConfirmId(photo.id)}
-              disabled={deleting.has(photo.id)}
-              aria-label={t("deleteLabel", { name: photo.file_name })}
-              className="absolute right-1.5 top-1.5 flex h-9 w-9 items-center justify-center rounded-full bg-black/55 text-white opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
-            >
-              {deleting.has(photo.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-            </button>
-          </figure>
-        ))}
-      </div>
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 sm:gap-3 lg:grid-cols-6">
+            {photos.map((photo) => {
+              const isCover = coverId === photo.id;
+              return (
+                <figure key={photo.id} className="group relative overflow-hidden rounded-xl bg-secondary">
+                  <div className="relative aspect-square">
+                    {photo.signedUrl ? (
+                      <img src={photo.signedUrl} alt={photo.file_name} loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full items-center justify-center p-2 text-center text-xs text-muted-foreground">{t("noPreview")}</div>
+                    )}
+                    {isCover ? (
+                      <span className="absolute bottom-1.5 left-1.5 rounded-full bg-amber-400 px-2 py-0.5 text-[11px] font-semibold text-black">
+                        {t("cover.badge")}
+                      </span>
+                    ) : null}
+                  </div>
+                  <figcaption className="truncate px-2 py-1.5 text-[11px] text-muted-foreground">{photo.file_name}</figcaption>
+                  <button
+                    type="button"
+                    onClick={() => void chooseCover(photo.id)}
+                    aria-pressed={isCover}
+                    aria-label={isCover ? t("cover.unset", { name: photo.file_name }) : t("cover.choose", { name: photo.file_name })}
+                    title={isCover ? t("cover.unset", { name: photo.file_name }) : t("cover.choose", { name: photo.file_name })}
+                    className={`absolute left-1.5 top-1.5 flex h-9 w-9 items-center justify-center rounded-full transition ${
+                      isCover
+                        ? "bg-amber-400 text-black"
+                        : "bg-black/55 text-white sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
+                    }`}
+                  >
+                    <Star className={`h-4 w-4 ${isCover ? "fill-current" : ""}`} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmId(photo.id)}
+                    disabled={deleting.has(photo.id)}
+                    aria-label={t("deleteLabel", { name: photo.file_name })}
+                    className="absolute right-1.5 top-1.5 flex h-9 w-9 items-center justify-center rounded-full bg-black/55 text-white opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
+                  >
+                    {deleting.has(photo.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                  </button>
+                </figure>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       <ConfirmDialog
         open={!!confirmId}

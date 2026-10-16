@@ -14,10 +14,11 @@ export async function AlbumTabs({
   album,
   active,
 }: {
-  album: Pick<Album, "id" | "title" | "slug" | "status" | "share_token" | "visibility">;
+  album: Pick<Album, "id" | "title" | "slug" | "status" | "share_token" | "visibility" | "archived_at" | "expires_at">;
   active: "upload" | "selections" | "edit";
 }) {
   const [t, site] = await Promise.all([getTranslations("album"), getSiteOrigin()]);
+  const expired = !!album.expires_at && new Date(album.expires_at) <= new Date();
   const tabs = [
     { key: "upload", href: `/dashboard/albums/${album.id}/upload` },
     { key: "selections", href: `/dashboard/albums/${album.id}/selections` },
@@ -47,6 +48,14 @@ export async function AlbumTabs({
           </Button>
         </div>
       </div>
+      {album.archived_at || expired ? (
+        <p role="status" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          {album.archived_at ? t("archivedNotice") : t("expiredNotice")}{" "}
+          <Link href={`/dashboard/albums/${album.id}/edit`} className="font-medium underline underline-offset-2">
+            {t("tabs.edit")}
+          </Link>
+        </p>
+      ) : null}
       <nav className="flex gap-1 border-b border-border" aria-label={t("tabsLabel")}>
         {tabs.map((tab) => (
           <Link

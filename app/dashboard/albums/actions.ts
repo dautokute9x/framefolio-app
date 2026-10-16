@@ -8,6 +8,7 @@ import { slugify } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { JOB_STATUSES } from "@/lib/constants";
+import { removeObjects } from "@/lib/storage";
 import type { JobStatus } from "@/lib/types";
 
 function parseStatus(value: string): JobStatus {
@@ -85,6 +86,9 @@ function buildAlbumPayload(formData: FormData, shareToken?: string) {
   const limitRaw = Number.parseInt(String(formData.get("selectionLimit") ?? "").trim(), 10);
   const selectionLimit = Number.isFinite(limitRaw) && limitRaw > 0 ? limitRaw : null;
   const removePassword = formData.get("removePassword") === "on";
+  // A date picked in the form means "until the end of that day" in Vietnam.
+  const expiresOn = String(formData.get("expiresOn") ?? "").trim();
+  const expiresAt = /^\d{4}-\d{2}-\d{2}$/.test(expiresOn) ? `${expiresOn}T23:59:59+07:00` : null;
 
   return {
     title,
@@ -93,6 +97,7 @@ function buildAlbumPayload(formData: FormData, shareToken?: string) {
     visibility,
     description,
     event_date: eventDate,
+    expires_at: expiresAt,
     password: galleryPassword,
     removePassword,
     selection_limit: selectionLimit,
@@ -120,6 +125,7 @@ export async function createAlbumAction(formData: FormData) {
     visibility: payload.visibility,
     event_date: payload.event_date,
     selection_limit: payload.selection_limit,
+    ...(payload.expires_at ? { expires_at: payload.expires_at } : {}),
     password_hash: payload.password ? await bcrypt.hash(payload.password, 10) : null,
   };
 
@@ -165,6 +171,9 @@ export async function updateAlbumAction(formData: FormData) {
     event_date: payload.event_date,
     client_id: clientId,
     selection_limit: payload.selection_limit,
+    // Only touch expires_at when there is something to set or clear, so editing
+    // keeps working on a database that has not run migration 0003 yet.
+    ...(payload.expires_at || existing.expires_at ? { expires_at: payload.expires_at } : {}),
     ...(payload.status === "Delivered" && !existing.delivered_at
       ? { delivered_at: new Date().toISOString() }
       : {}),
@@ -212,21 +221,6 @@ export async function setAlbumStatusAction(formData: FormData) {
   redirect(`/dashboard/albums/${albumId}/selections`);
 }
 
-export async function refreshShareLinkAction(formData: FormData) {
-  const profile = await requireAdminProfile();
-  const albumId = String(formData.get("albumId") ?? "").trim();
-  const supabase = await createClient();
-
-  await supabase
-    .from("albums")
-    .update({ share_token: crypto.randomUUID() })
-    .eq("id", albumId)
-    .eq("owner_id", profile.id);
-
-  revalidatePath("/dashboard");
-  redirect("/dashboard");
-}
-
 /** Status change from the album cards (no redirect). */
 export async function updateAlbumStatus(albumId: string, status: string) {
   const profile = await requireAdminProfile();
@@ -241,5 +235,128 @@ export async function updateAlbumStatus(albumId: string, status: string) {
     .eq("id", albumId)
     .eq("owner_id", profile.id);
   revalidatePath("/dashboard");
+  return { ok: !error };
+}
+
+function revalidateAlbum(albumId: string) {
+  revalidatePath("/dashboard");
+  revalidatePath(`/dashboard/albums/${albumId}`, "layout");
+  revalidatePath("/portfolio");
+  revalidatePath("/");
+}
+
+/** New share token: links sent earlier stop working. Returns the new client path. */
+export async function resetShareLink(albumId: string) {
+  const profile = await requireAdminProfile();
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("albums")
+    .update({ share_token: crypto.randomUUID() })
+    .eq("id", albumId)
+    .eq("owner_id", profile.id)
+    .select("slug, share_token, visibility")
+    .single();
+  revalidateAlbum(albumId);
+  if (error || !data) return { ok: false as const };
+  const query = data.visibility === "private" ? `?share=${data.share_token}` : "";
+  return { ok: true as const, sharePath: `/gallery/${data.slug}${query}` };
+}
+
+/** Archive hides the album everywhere (dashboard list, portfolio, client link) without deleting it. */
+export async function setAlbumArchived(albumId: string, archived: boolean) {
+  const profile = await requireAdminProfile();
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("albums")
+    .update({ archived_at: archived ? new Date().toISOString() : null })
+    .eq("id", albumId)
+    .eq("owner_id", profile.id);
+  if (error) console.error("setAlbumArchived failed", error.message);
+  revalidateAlbum(albumId);
+  return { ok: !error };
+}
+
+/** Deletes the album, its selections and the photo files in storage. */
+export async function deleteAlbum(albumId: string) {
+  const profile = await requireAdminProfile();
+  const supabase = await createClient();
+  const { data: album } = await supabase
+    .from("albums")
+    .select("id")
+    .eq("id", albumId)
+    .eq("owner_id", profile.id)
+    .maybeSingle();
+  if (!album) return { ok: false as const };
+
+  // Collect the storage paths first: rows disappear with the album (on delete cascade).
+  const { data: photos } = await supabase
+    .from("photos")
+    .select("file_path, preview_path, storage_bucket")
+    .eq("album_id", albumId)
+    .limit(100000);
+
+  const { error } = await supabase.from("albums").delete().eq("id", albumId).eq("owner_id", profile.id);
+  if (error) {
+    console.error("deleteAlbum failed", error.message);
+    return { ok: false as const };
+  }
+
+  const byBucket = new Map<string, string[]>();
+  for (const photo of photos ?? []) {
+    const list = byBucket.get(photo.storage_bucket) ?? [];
+    list.push(photo.file_path);
+    if (photo.preview_path) list.push(photo.preview_path);
+    byBucket.set(photo.storage_bucket, list);
+  }
+  for (const [bucket, paths] of byBucket) {
+    for (let i = 0; i < paths.length; i += 500) {
+      await removeObjects(paths.slice(i, i + 500), bucket).catch((err) =>
+        console.error("[storage] album cleanup failed", err)
+      );
+    }
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/portfolio");
+  revalidatePath("/");
+  return { ok: true as const };
+}
+
+export async function setCoverPhoto(albumId: string, photoId: string | null) {
+  const profile = await requireAdminProfile();
+  const supabase = await createClient();
+  if (photoId) {
+    const { data: photo } = await supabase
+      .from("photos")
+      .select("id")
+      .eq("id", photoId)
+      .eq("album_id", albumId)
+      .maybeSingle();
+    if (!photo) return { ok: false };
+  }
+  const { error } = await supabase
+    .from("albums")
+    .update({ cover_photo_id: photoId })
+    .eq("id", albumId)
+    .eq("owner_id", profile.id);
+  revalidateAlbum(albumId);
+  return { ok: !error };
+}
+
+/** Saves the photo order (ids in display order) in one database call. */
+export async function reorderPhotos(albumId: string, photoIds: string[]) {
+  const profile = await requireAdminProfile();
+  if (!Array.isArray(photoIds) || photoIds.length > 20000) return { ok: false };
+  const supabase = await createClient();
+  const { data: album } = await supabase
+    .from("albums")
+    .select("id, slug")
+    .eq("id", albumId)
+    .eq("owner_id", profile.id)
+    .maybeSingle();
+  if (!album) return { ok: false };
+  const { error } = await supabase.rpc("reorder_album_photos", { target_album: albumId, photo_ids: photoIds });
+  if (error) console.error("reorderPhotos failed", error.message);
+  revalidatePath(`/gallery/${album.slug}`);
   return { ok: !error };
 }

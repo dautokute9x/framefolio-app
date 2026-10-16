@@ -59,7 +59,8 @@
     "inbox": "Selections",
     "site": "Website",
     "studio": "Studio",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "clients": "Clients"
   },
   "status": {
     "draft": "Draft",
@@ -93,7 +94,11 @@
       "copyLink": "Copy link",
       "edit": "Edit details",
       "more": "More actions",
-      "markAs": "Mark as: {status}"
+      "markAs": "Mark as: {status}",
+      "resetLink": "Change share link",
+      "archive": "Archive",
+      "restore": "Restore",
+      "delete": "Delete album"
     },
     "filterLabel": "Filter by status",
     "filterAll": "All",
@@ -112,7 +117,11 @@
       "error": "Could not save, please try again.",
       "linkCopied": "Album link copied.",
       "sent": "Link copied. Send it to your client by message."
-    }
+    },
+    "filterArchived": "Archived",
+    "archivedBadge": "Archived",
+    "expired": "Expired",
+    "expiresOn": "Expires {date}"
   },
   "inbox": {
     "title": "Client selections",
@@ -167,7 +176,9 @@
     "errors": {
       "title": "Please enter an album title.",
       "save": "Could not save the album, please try again."
-    }
+    },
+    "expiresOn": "Link expires after",
+    "expiresOnHint": "Leave empty to keep the link working. After this day the client sees that the album has expired."
   },
   "album": {
     "back": "All albums",
@@ -179,7 +190,9 @@
       "upload": "Photos",
       "selections": "Selections",
       "edit": "Details"
-    }
+    },
+    "archivedNotice": "This album is archived: the client link does not open. Restore it under",
+    "expiredNotice": "The album link has expired, so the client cannot open it. Change the date under"
   },
   "upload": {
     "dropTitle": "Drag and drop or click to choose photos",
@@ -211,6 +224,24 @@
       "network": "Connection lost, please try again",
       "save": "Could not save the photo",
       "delete": "Could not delete the photo"
+    },
+    "cover": {
+      "badge": "Cover",
+      "choose": "Use {name} as the cover",
+      "unset": "Remove {name} as the cover",
+      "set": "Cover photo set.",
+      "cleared": "Cover removed; the album uses its first photo.",
+      "error": "Could not change the cover."
+    },
+    "arrange": {
+      "start": "Arrange photos",
+      "hint": "Drag to change the order (on phones: press and hold, then drag).",
+      "byName": "By file name",
+      "cancel": "Cancel",
+      "save": "Save order",
+      "saved": "Photo order saved.",
+      "error": "Could not save the order, please try again.",
+      "item": "Photo {position}: {name}"
     }
   },
   "selections": {
@@ -270,7 +301,8 @@
     "confirmSubmit": "Confirm & send",
     "ogDescription": "View and pick your photos.",
     "toggleTheme": "Switch light / dark",
-    "keyboardHint": "← → next photo · Space to select · Esc to close"
+    "keyboardHint": "← → next photo · Space to select · Esc to close",
+    "expired": "This album has expired. Please contact the photographer if you need it reopened."
   },
   "gate": {
     "wrong": "Wrong password",
@@ -307,6 +339,70 @@
     "invalidPath": "Invalid photo path",
     "photoNotFound": "Photo not found",
     "invalidFile": "Only JPG, PNG, WEBP up to 50MB",
-    "photoSaveFailed": "Could not save the photo"
+    "photoSaveFailed": "Could not save the photo",
+    "albumExpired": "This album has expired",
+    "deleteFailed": "Could not delete, please try again"
+  },
+  "manage": {
+    "title": "Manage album",
+    "cancel": "Cancel",
+    "reset": {
+      "label": "Change share link",
+      "hint": "Creates a new link; links already sent to the client stop working.",
+      "title": "Change the share link?",
+      "body": "Links already sent to the client will stop working. The new link is copied so you can send it again.",
+      "confirm": "Change link"
+    },
+    "archive": "Archive album",
+    "archiveHint": "Hides it from your list, the Portfolio page and the client link. Nothing is deleted; you can restore it.",
+    "restore": "Restore album",
+    "restoreHint": "Shows the album in your list again and reopens the client link.",
+    "delete": {
+      "label": "Delete album",
+      "hint": "Permanently deletes the album, every uploaded photo and the client's selections.",
+      "title": "Delete “{title}”?",
+      "body": "{count, plural, =0 {The album} one {# photo} other {# photos}} and every client selection will be deleted permanently. To just hide it, use Archive.",
+      "confirm": "Delete permanently"
+    },
+    "toast": {
+      "archived": "Album archived.",
+      "restored": "Album restored.",
+      "reset": "New link created and copied.",
+      "deleted": "Album deleted.",
+      "error": "Something went wrong, please try again."
+    }
+  },
+  "clients": {
+    "title": "Clients",
+    "subtitle": "{count, plural, =0 {No clients yet} one {# client} other {# clients}}",
+    "empty": "No clients yet. Clients are created when you fill in client details on an album, or add them here.",
+    "add": "Add client",
+    "edit": "Edit",
+    "delete": "Delete",
+    "save": "Save",
+    "cancel": "Cancel",
+    "name": "Client name",
+    "phone": "Phone",
+    "email": "Email",
+    "notes": "Notes",
+    "albums": "{count, plural, =0 {No albums} one {# album} other {# albums}}",
+    "deleteBlocked": "This client has albums; change the albums' client before deleting.",
+    "confirmDelete": {
+      "title": "Delete “{name}”?",
+      "body": "The client's contact details are deleted. Albums are not affected.",
+      "confirm": "Delete client"
+    },
+    "toast": {
+      "saved": "Client saved.",
+      "deleted": "Client deleted.",
+      "error": "Could not save, please try again.",
+      "nameRequired": "Please enter the client's name."
+    }
+  },
+  "email": {
+    "subject": "{name} sent their selection: {title}",
+    "body": "{name} picked {count, plural, one {# photo} other {# photos}} in “{title}” and sent the selection. The album is now locked so you can start editing.",
+    "note": "Client note",
+    "open": "View selection"
   }
 }

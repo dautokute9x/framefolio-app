@@ -30,12 +30,13 @@ export function LocaleSwitcher({ className, tone = "light" }: { className?: stri
           type="button"
           aria-pressed={locale === code}
           disabled={pending}
-          onClick={() =>
+          onClick={() => {
+            if (code === locale) return;
             startTransition(async () => {
               await setLocaleAction(code);
               router.refresh();
-            })
-          }
+            });
+          }}
           className={cn(
             "h-8 min-w-10 rounded-full px-2.5 uppercase tracking-wide transition",
             locale === code

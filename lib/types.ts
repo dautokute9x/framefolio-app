@@ -39,6 +39,10 @@ export type Album = {
   delivered_at: string | null;
   cover_photo_id: string | null;
   selection_limit: number | null;
+  /** Hidden from the dashboard list, portfolio and client link (0003). */
+  archived_at?: string | null;
+  /** The client link stops working after this moment (0003). */
+  expires_at?: string | null;
   created_at: string;
   updated_at: string;
 };

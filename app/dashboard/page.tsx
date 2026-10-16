@@ -38,6 +38,8 @@ export default async function DashboardPage() {
     hasPassword: !!album.password_hash,
     sharePath: buildSharePath(album),
     shareUrl: buildShareLink(album, site.origin),
+    archivedAt: album.archived_at ?? null,
+    expiresAt: album.expires_at ?? null,
   }));
 
   return (
@@ -52,7 +54,7 @@ export default async function DashboardPage() {
       <div className="flex items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl sm:text-4xl">{t("title")}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t("subtitle", { count: albums.length })}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t("subtitle", { count: items.filter((item) => !item.archivedAt).length })}</p>
         </div>
         <Button asChild className="hidden md:inline-flex">
           <Link href="/dashboard/albums/new">

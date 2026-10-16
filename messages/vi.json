@@ -59,7 +59,8 @@
     "inbox": "Lựa chọn",
     "site": "Trang web",
     "studio": "Studio",
-    "signOut": "Đăng xuất"
+    "signOut": "Đăng xuất",
+    "clients": "Khách hàng"
   },
   "status": {
     "draft": "Nháp",
@@ -93,7 +94,11 @@
       "copyLink": "Sao chép link",
       "edit": "Sửa thông tin",
       "more": "Thao tác khác",
-      "markAs": "Chuyển sang: {status}"
+      "markAs": "Chuyển sang: {status}",
+      "resetLink": "Đổi link chia sẻ",
+      "archive": "Lưu trữ",
+      "restore": "Khôi phục",
+      "delete": "Xoá album"
     },
     "filterLabel": "Lọc theo trạng thái",
     "filterAll": "Tất cả",
@@ -112,7 +117,11 @@
       "error": "Không lưu được, vui lòng thử lại.",
       "linkCopied": "Đã sao chép link album.",
       "sent": "Đã sao chép link. Gửi cho khách qua Zalo/Messenger nhé."
-    }
+    },
+    "filterArchived": "Lưu trữ",
+    "archivedBadge": "Đã lưu trữ",
+    "expired": "Đã hết hạn",
+    "expiresOn": "Hết hạn {date}"
   },
   "inbox": {
     "title": "Lựa chọn của khách",
@@ -167,7 +176,9 @@
     "errors": {
       "title": "Vui lòng nhập tên album.",
       "save": "Không lưu được album, vui lòng thử lại."
-    }
+    },
+    "expiresOn": "Link hết hạn sau ngày",
+    "expiresOnHint": "Để trống nếu link dùng mãi. Sau ngày này khách sẽ thấy thông báo album đã hết hạn."
   },
   "album": {
     "back": "Tất cả album",
@@ -179,7 +190,9 @@
       "upload": "Ảnh",
       "selections": "Lựa chọn",
       "edit": "Thông tin"
-    }
+    },
+    "archivedNotice": "Album đang được lưu trữ: khách không mở được link. Khôi phục ở mục",
+    "expiredNotice": "Link của album đã hết hạn nên khách không mở được. Đổi ngày hết hạn ở mục"
   },
   "upload": {
     "dropTitle": "Kéo thả hoặc bấm để chọn nhiều ảnh",
@@ -211,6 +224,24 @@
       "network": "Mất kết nối, vui lòng thử lại",
       "save": "Không lưu được ảnh",
       "delete": "Không xoá được ảnh"
+    },
+    "cover": {
+      "badge": "Ảnh bìa",
+      "choose": "Đặt {name} làm ảnh bìa",
+      "unset": "Bỏ ảnh bìa {name}",
+      "set": "Đã đặt ảnh bìa.",
+      "cleared": "Đã bỏ ảnh bìa; album dùng ảnh đầu tiên.",
+      "error": "Không đổi được ảnh bìa."
+    },
+    "arrange": {
+      "start": "Sắp xếp ảnh",
+      "hint": "Kéo thả để đổi thứ tự (trên điện thoại: nhấn giữ rồi kéo).",
+      "byName": "Theo tên file",
+      "cancel": "Huỷ",
+      "save": "Lưu thứ tự",
+      "saved": "Đã lưu thứ tự ảnh.",
+      "error": "Không lưu được thứ tự, vui lòng thử lại.",
+      "item": "Ảnh {position}: {name}"
     }
   },
   "selections": {
@@ -270,7 +301,8 @@
     "confirmSubmit": "Xác nhận gửi",
     "ogDescription": "Xem và chọn ảnh của bạn.",
     "toggleTheme": "Đổi nền sáng / tối",
-    "keyboardHint": "← → chuyển ảnh · Space để chọn · Esc để đóng"
+    "keyboardHint": "← → chuyển ảnh · Space để chọn · Esc để đóng",
+    "expired": "Album này đã hết hạn xem. Vui lòng liên hệ nhiếp ảnh gia nếu bạn cần mở lại."
   },
   "gate": {
     "wrong": "Mật khẩu chưa đúng",
@@ -307,6 +339,70 @@
     "invalidPath": "Đường dẫn ảnh không hợp lệ",
     "photoNotFound": "Không tìm thấy ảnh",
     "invalidFile": "Chỉ nhận JPG, PNG, WEBP tối đa 50MB",
-    "photoSaveFailed": "Không lưu được ảnh"
+    "photoSaveFailed": "Không lưu được ảnh",
+    "albumExpired": "Album đã hết hạn",
+    "deleteFailed": "Không xoá được, vui lòng thử lại"
+  },
+  "manage": {
+    "title": "Quản lý album",
+    "cancel": "Huỷ",
+    "reset": {
+      "label": "Đổi link chia sẻ",
+      "hint": "Tạo link mới; link cũ đã gửi khách sẽ không mở được nữa.",
+      "title": "Đổi link chia sẻ?",
+      "body": "Link cũ đã gửi cho khách sẽ không mở được nữa. Link mới sẽ được sao chép để bạn gửi lại cho khách.",
+      "confirm": "Đổi link"
+    },
+    "archive": "Lưu trữ album",
+    "archiveHint": "Ẩn khỏi danh sách, trang Portfolio và link của khách. Không xoá ảnh, có thể khôi phục.",
+    "restore": "Khôi phục album",
+    "restoreHint": "Album hiện lại trong danh sách và link của khách hoạt động trở lại.",
+    "delete": {
+      "label": "Xoá album",
+      "hint": "Xoá vĩnh viễn album, toàn bộ ảnh đã tải lên và lựa chọn của khách.",
+      "title": "Xoá album “{title}”?",
+      "body": "{count, plural, =0 {Album} other {# ảnh}} cùng mọi lựa chọn của khách sẽ bị xoá vĩnh viễn, không thể khôi phục. Nếu chỉ muốn ẩn, hãy dùng Lưu trữ.",
+      "confirm": "Xoá vĩnh viễn"
+    },
+    "toast": {
+      "archived": "Đã lưu trữ album.",
+      "restored": "Đã khôi phục album.",
+      "reset": "Đã tạo link mới và sao chép.",
+      "deleted": "Đã xoá album.",
+      "error": "Không thực hiện được, vui lòng thử lại."
+    }
+  },
+  "clients": {
+    "title": "Khách hàng",
+    "subtitle": "{count, plural, =0 {Chưa có khách hàng} other {# khách hàng}}",
+    "empty": "Chưa có khách hàng. Khách được tạo khi bạn điền thông tin khách trong album, hoặc thêm ở đây.",
+    "add": "Thêm khách",
+    "edit": "Sửa",
+    "delete": "Xoá",
+    "save": "Lưu",
+    "cancel": "Huỷ",
+    "name": "Tên khách",
+    "phone": "Số điện thoại",
+    "email": "Email",
+    "notes": "Ghi chú",
+    "albums": "{count, plural, =0 {Chưa có album} other {# album}}",
+    "deleteBlocked": "Khách đang có album, hãy đổi khách của album trước khi xoá.",
+    "confirmDelete": {
+      "title": "Xoá khách “{name}”?",
+      "body": "Thông tin liên hệ của khách sẽ bị xoá. Không ảnh hưởng tới album.",
+      "confirm": "Xoá khách"
+    },
+    "toast": {
+      "saved": "Đã lưu khách hàng.",
+      "deleted": "Đã xoá khách hàng.",
+      "error": "Không lưu được, vui lòng thử lại.",
+      "nameRequired": "Vui lòng nhập tên khách."
+    }
+  },
+  "email": {
+    "subject": "{name} đã gửi lựa chọn: {title}",
+    "body": "{name} đã chọn {count} ảnh trong album “{title}” và bấm Gửi lựa chọn. Album đã được khoá để bạn bắt đầu chỉnh sửa.",
+    "note": "Ghi chú của khách",
+    "open": "Xem lựa chọn"
   }
 }

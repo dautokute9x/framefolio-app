@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ThemeToggle } from "@/components/gallery/theme-toggle";
 import {
+  albumAvailability,
   getSelectionCookieName,
   hasAlbumPasswordAccess,
   isShareTokenValid,
@@ -35,7 +36,8 @@ export default async function SelectedPage({
   const shareQuery = shareToken ? `?share=${encodeURIComponent(shareToken)}` : "";
 
   const album = await getGalleryAlbumBySlug(slug);
-  if (!album || !isShareTokenValid(album, shareToken)) notFound();
+  if (!album || !isShareTokenValid(album, shareToken) || albumAvailability(album) === "archived") notFound();
+  if (albumAvailability(album) === "expired") redirect(`/gallery/${slug}${shareQuery}`);
   if (!(await hasAlbumPasswordAccess(album))) redirect(`/gallery/${slug}${shareQuery}`);
 
   const cookieStore = await cookies();

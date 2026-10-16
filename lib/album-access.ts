@@ -57,6 +57,12 @@ export function isShareTokenValid(
   return !!shareToken && shareToken === album.share_token;
 }
 
+/** Archived albums behave as if they did not exist; expired ones show a notice. */
+export function albumAvailability(album: Pick<Album, "archived_at" | "expires_at">, now = new Date()) {
+  if (album.archived_at) return "archived" as const;
+  if (album.expires_at && new Date(album.expires_at) <= now) return "expired" as const;
+  return "open" as const;
+}
 
 const SELECTION_KEY_PATTERN = /^[0-9a-f-]{36}$/i;
 
