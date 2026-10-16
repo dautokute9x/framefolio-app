@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { apiError } from "@/lib/api-error";
 import { z } from "zod";
 import { isSelectionOpen } from "@/lib/album-access";
 import { guardGalleryRequest } from "@/lib/gallery-guard";
@@ -18,7 +19,7 @@ export async function POST(
   const { slug } = await params;
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ error: "Yêu cầu không hợp lệ" }, { status: 400 });
+    return await apiError("invalidRequest", 400);
   }
   const body = parsed.data;
 
@@ -27,10 +28,7 @@ export async function POST(
   const { album, selectionKey, persistSelectionKey, admin } = guard;
 
   if (!isSelectionOpen(album.status)) {
-    return NextResponse.json(
-      { error: "Album đã chốt lựa chọn. Vui lòng liên hệ nhiếp ảnh gia nếu cần thay đổi." },
-      { status: 423 }
-    );
+    return await apiError("selectionLocked", 423);
   }
 
   // The photo must belong to this album (previously any photo id was accepted).
@@ -43,7 +41,7 @@ export async function POST(
     .maybeSingle();
 
   if (!photo) {
-    return NextResponse.json({ error: "Ảnh không thuộc album này" }, { status: 404 });
+    return await apiError("photoNotInAlbum", 404);
   }
 
   const countSelected = async () => {
@@ -70,7 +68,7 @@ export async function POST(
       { onConflict: "album_id,photo_id,selection_key" }
     );
     if (error) {
-      return NextResponse.json({ error: "Không lưu được lựa chọn, thử lại sau" }, { status: 500 });
+      return await apiError("saveFailed", 500);
     }
 
     // Enforce the package limit after the write so concurrent taps cannot overshoot it.
@@ -84,13 +82,7 @@ export async function POST(
           .eq("photo_id", body.photoId)
           .eq("selection_key", selectionKey);
         persistSelectionKey();
-        return NextResponse.json(
-          {
-            error: `Bạn chỉ được chọn tối đa ${album.selection_limit} ảnh. Bỏ chọn bớt ảnh khác trước nhé.`,
-            count: album.selection_limit,
-          },
-          { status: 409 }
-        );
+        return await apiError("limitReached", 409, { limit: album.selection_limit });
       }
     }
   } else {

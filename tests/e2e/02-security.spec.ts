@@ -104,7 +104,8 @@ test("Vietnamese titles get readable slugs that survive renames", async ({ page 
 test("login page exposes no demo credentials or open sign-up", async ({ page }) => {
   await page.goto("/login");
   await expect(page.locator("body")).not.toContainText(DEMO.password);
-  await expect(page.locator("body")).not.toContainText("Create photographer account");
+  // Sign-up is off unless ALLOW_SIGNUP is set.
+  await expect(page.locator('input[name="fullName"]')).toHaveCount(0);
 });
 
 test("health endpoint reports the database is reachable", async ({ request }) => {

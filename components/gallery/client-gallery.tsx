@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { LocaleSwitcher } from "@/components/locale-switcher";
 import { Check, ChevronLeft, ChevronRight, Heart, Loader2, Lock, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { GalleryPhoto, PublicAlbum } from "@/lib/types";
@@ -31,6 +33,7 @@ export function ClientGallery({
   initialSession: SessionInfo | null;
 }) {
   const router = useRouter();
+  const t = useTranslations("gallery");
   const [selected, setSelected] = useState<Set<string>>(() => new Set(initiallySelected));
   const [pending, setPending] = useState<Set<string>>(() => new Set());
   const [filter, setFilter] = useState<"all" | "selected">("all");
@@ -61,7 +64,7 @@ export function ClientGallery({
   const toggle = useCallback(
     async (photoId: string) => {
       if (locked) {
-        showToast("Album đã chốt lựa chọn. Liên hệ nhiếp ảnh gia nếu cần thay đổi.");
+        showToast(t("lockedToast"));
         return;
       }
       // Ignore taps while the previous request for this photo is still in flight
@@ -70,7 +73,7 @@ export function ClientGallery({
 
       const shouldSelect = !selected.has(photoId);
       if (shouldSelect && limit && selected.size >= limit) {
-        showToast(`Bạn chỉ được chọn tối đa ${limit} ảnh. Bỏ chọn bớt ảnh khác trước nhé.`);
+        showToast(t("limitReached", { limit }));
         return;
       }
 
@@ -107,7 +110,7 @@ export function ClientGallery({
             return next;
           });
           if (response.status === 423) setLocked(true);
-          showToast(payload.error ?? "Không lưu được lựa chọn, vui lòng thử lại.");
+          showToast(payload.error ?? t("saveFailed"));
         }
       } catch {
         setSelected((current) => {
@@ -116,13 +119,13 @@ export function ClientGallery({
           else next.add(photoId);
           return next;
         });
-        showToast("Mất kết nối. Lựa chọn chưa được lưu, vui lòng thử lại.");
+        showToast(t("offline"));
       } finally {
         pendingRef.current.delete(photoId);
         setPending(new Set(pendingRef.current));
       }
     },
-    [album.slug, limit, locked, selected, session.selectorEmail, session.selectorName, shareToken, showToast]
+    [album.slug, limit, locked, selected, session.selectorEmail, session.selectorName, shareToken, showToast, t]
   );
 
   // Signed URLs expire; if an image fails (e.g. tab left open for hours) refresh once.
@@ -156,13 +159,15 @@ export function ClientGallery({
       <section className="sticky top-0 z-30 border-b border-border/80 bg-background/95 px-4 py-3 backdrop-blur sm:px-6">
         <div className="mx-auto flex max-w-6xl flex-wrap items-end justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Album chọn ảnh</p>
+            <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">{t("eyebrow")}</p>
             <h1 className="mt-1 truncate font-display text-2xl sm:text-3xl">{album.title}</h1>
             <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
-              {photos.length} ảnh · Chạm ♥ để chọn, chạm vào ảnh để xem lớn.
-              {limit ? ` Được chọn tối đa ${limit} ảnh.` : ""}
+              {t("intro", { count: photos.length })}
+              {limit ? ` ${t("limitHint", { limit })}` : ""}
             </p>
           </div>
+          <div className="flex items-center gap-2">
+          <LocaleSwitcher />
           <div className="flex rounded-full border border-border bg-white p-1 text-sm" role="tablist">
             {(["all", "selected"] as const).map((key) => (
               <button
@@ -176,9 +181,10 @@ export function ClientGallery({
                   filter === key ? "bg-primary text-primary-foreground" : "text-muted-foreground"
                 )}
               >
-                {key === "all" ? `Tất cả (${photos.length})` : `Đã chọn (${count})`}
+                {key === "all" ? t("filterAll", { count: photos.length }) : t("filterSelected", { count })}
               </button>
             ))}
+          </div>
           </div>
         </div>
       </section>
@@ -187,23 +193,20 @@ export function ClientGallery({
         <div className="mx-auto mt-3 flex max-w-6xl items-start gap-3 rounded-2xl border border-border bg-secondary px-4 py-3 text-sm sm:mx-6 lg:mx-auto">
           <Lock className="mt-0.5 h-4 w-4 shrink-0" />
           <p>
-            {session.submittedAt
-              ? "Bạn đã gửi lựa chọn cho nhiếp ảnh gia. Cảm ơn bạn!"
-              : "Album đã chốt lựa chọn."}{" "}
-            Nếu cần thay đổi, vui lòng liên hệ nhiếp ảnh gia để mở lại.
+            {session.submittedAt ? t("lockedSubmitted") : t("locked")} {t("lockedContact")}
           </p>
         </div>
       ) : null}
 
       {photos.length === 0 ? (
         <p className="mx-auto mt-10 max-w-md px-4 text-center text-sm text-muted-foreground">
-          Nhiếp ảnh gia chưa tải ảnh lên album này.
+          {t("noPhotos")}
         </p>
       ) : null}
 
       {filter === "selected" && count === 0 && photos.length > 0 ? (
         <p className="mx-auto mt-10 max-w-md px-4 text-center text-sm text-muted-foreground">
-          Bạn chưa chọn ảnh nào.
+          {t("noneSelected")}
         </p>
       ) : null}
 
@@ -226,16 +229,16 @@ export function ClientGallery({
                 type="button"
                 className="relative block aspect-[4/5] w-full"
                 onClick={() => setViewerIndex(index)}
-                aria-label={`Xem lớn ảnh ${number}`}
+                aria-label={t("viewPhoto", { number })}
               >
                 {photo.url ? (
                   // Plain <img>: URLs are short-lived signed links to already
                   // web-sized previews, so next/image optimisation adds no value
                   // and would re-process every new token.
-                  // eslint-disable-next-line @next/next/no-img-element
+                   
                   <img
                     src={photo.url}
-                    alt={`Ảnh ${number}`}
+                    alt={t("photoAlt", { number })}
                     loading={index < 6 ? "eager" : "lazy"}
                     decoding="async"
                     onError={handleImageError}
@@ -245,7 +248,7 @@ export function ClientGallery({
                   />
                 ) : (
                   <span className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
-                    Không tải được ảnh
+                    {t("imageError")}
                   </span>
                 )}
                 <span className="absolute left-2 top-2 rounded-full bg-background/85 px-2 py-0.5 text-[11px] font-medium">
@@ -257,7 +260,7 @@ export function ClientGallery({
                 type="button"
                 data-select-button
                 aria-pressed={active}
-                aria-label={active ? `Bỏ chọn ảnh ${number}` : `Chọn ảnh ${number}`}
+                aria-label={active ? t("unselectPhoto", { number }) : t("selectPhoto", { number })}
                 onClick={() => void toggle(photo.id)}
                 className={cn(
                   "absolute bottom-2 right-2 flex h-11 w-11 items-center justify-center rounded-full shadow backdrop-blur transition active:scale-95",
@@ -282,21 +285,20 @@ export function ClientGallery({
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-sm font-semibold" data-selected-count>
-              {count}
-              {limit ? ` / ${limit}` : ""} ảnh đã chọn
+              {t("selectedCount", { count, limit: limit ?? 0 })}
             </p>
             <p className="truncate text-xs text-muted-foreground">
-              {session.submittedAt ? "Đã gửi cho nhiếp ảnh gia" : "Lựa chọn được lưu tự động"}
+              {session.submittedAt ? t("sentToPhotographer") : t("autoSaved")}
             </p>
           </div>
           <div className="flex shrink-0 gap-2">
             <Button asChild variant="outline" size="sm">
-              <Link href={`/gallery/${album.slug}/selected${shareQuery}`}>Xem lại</Link>
+              <Link href={`/gallery/${album.slug}/selected${shareQuery}`}>{t("review")}</Link>
             </Button>
             {!locked ? (
               <Button size="sm" disabled={count === 0} onClick={() => setSubmitOpen(true)}>
-                <Send className="mr-1.5 h-4 w-4" />
-                Gửi lựa chọn
+                <Send className="h-4 w-4" />
+                {t("submit")}
               </Button>
             ) : null}
           </div>
@@ -333,13 +335,13 @@ export function ClientGallery({
             <span>
               {viewerIndex! + 1} / {visiblePhotos.length}
             </span>
-            <button type="button" aria-label="Đóng" onClick={() => setViewerIndex(null)} className="p-2">
+            <button type="button" aria-label={t("close")} onClick={() => setViewerIndex(null)} className="p-2">
               <X className="h-6 w-6" />
             </button>
           </div>
           <div className="relative flex flex-1 items-center justify-center overflow-hidden px-2">
             {viewerPhoto.url ? (
-              // eslint-disable-next-line @next/next/no-img-element
+               
               <img
                 src={viewerPhoto.url}
                 alt={viewerPhoto.file_name}
@@ -350,7 +352,7 @@ export function ClientGallery({
             ) : null}
             <button
               type="button"
-              aria-label="Ảnh trước"
+              aria-label={t("previous")}
               disabled={viewerIndex === 0}
               onClick={() => setViewerIndex((i) => (i === null ? i : Math.max(i - 1, 0)))}
               className="absolute left-2 hidden rounded-full bg-white/10 p-2 disabled:opacity-30 sm:block"
@@ -359,7 +361,7 @@ export function ClientGallery({
             </button>
             <button
               type="button"
-              aria-label="Ảnh sau"
+              aria-label={t("next")}
               disabled={viewerIndex === visiblePhotos.length - 1}
               onClick={() => setViewerIndex((i) => (i === null ? i : Math.min(i + 1, visiblePhotos.length - 1)))}
               className="absolute right-2 hidden rounded-full bg-white/10 p-2 disabled:opacity-30 sm:block"
@@ -383,7 +385,7 @@ export function ClientGallery({
               ) : (
                 <Heart className="h-5 w-5" />
               )}
-              {selected.has(viewerPhoto.id) ? "Đã chọn" : "Chọn ảnh này"}
+              {selected.has(viewerPhoto.id) ? t("selected") : t("selectThis")}
               <span className="text-xs opacity-70">
                 ({count}
                 {limit ? `/${limit}` : ""})
@@ -405,7 +407,7 @@ export function ClientGallery({
             setSession(next);
             setLocked(true);
             setSubmitOpen(false);
-            showToast("Đã gửi lựa chọn cho nhiếp ảnh gia. Cảm ơn bạn!");
+            showToast(t("submittedToast"));
           }}
         />
       ) : null}
@@ -430,6 +432,7 @@ function SubmitDialog({
   onClose: () => void;
   onSubmitted: (session: SessionInfo) => void;
 }) {
+  const t = useTranslations("gallery");
   const [name, setName] = useState(session.selectorName);
   const [email, setEmail] = useState(session.selectorEmail);
   const [note, setNote] = useState(session.note);
@@ -448,12 +451,12 @@ function SubmitDialog({
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setError(payload.error ?? "Không gửi được, vui lòng thử lại.");
+        setError(payload.error ?? t("submitFailed"));
         return;
       }
       onSubmitted({ selectorName: name, selectorEmail: email, note, submittedAt: payload.submittedAt });
     } catch {
-      setError("Mất kết nối, vui lòng thử lại.");
+      setError(t("networkError"));
     } finally {
       setSaving(false);
     }
@@ -463,16 +466,14 @@ function SubmitDialog({
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" role="dialog" aria-modal="true">
       <form onSubmit={submit} className="w-full max-w-md space-y-4 rounded-t-3xl bg-background p-6 shadow-xl sm:rounded-3xl">
         <div>
-          <h2 className="font-display text-2xl">Gửi lựa chọn</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Bạn đã chọn <strong>{count}</strong>
-            {limit ? `/${limit}` : ""} ảnh. Sau khi gửi, lựa chọn sẽ được chốt để nhiếp ảnh gia bắt đầu chỉnh sửa.
-          </p>
+          <h2 className="font-display text-2xl">{t("submitTitle")}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t("submitBody", { count, limit: limit ?? 0 })}</p>
         </div>
         <input
           required
           name="selectorName"
-          placeholder="Tên của bạn *"
+          placeholder={t("namePlaceholder")}
+          aria-label={t("namePlaceholder")}
           value={name}
           onChange={(event) => setName(event.target.value)}
           className="h-11 w-full rounded-xl border border-input bg-white px-3 text-sm"
@@ -480,14 +481,16 @@ function SubmitDialog({
         <input
           type="email"
           name="selectorEmail"
-          placeholder="Email (không bắt buộc)"
+          placeholder={t("emailPlaceholder")}
+          aria-label={t("emailPlaceholder")}
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           className="h-11 w-full rounded-xl border border-input bg-white px-3 text-sm"
         />
         <textarea
           name="note"
-          placeholder="Ghi chú cho nhiếp ảnh gia (VD: ảnh #12 xoá giúp người phía sau)"
+          placeholder={t("notePlaceholder")}
+          aria-label={t("notePlaceholder")}
           value={note}
           onChange={(event) => setNote(event.target.value)}
           rows={3}
@@ -496,11 +499,11 @@ function SubmitDialog({
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
         <div className="flex gap-2">
           <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
-            Để sau
+            {t("later")}
           </Button>
           <Button type="submit" className="flex-1" disabled={saving || !name.trim()}>
             {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Xác nhận gửi
+            {t("confirmSubmit")}
           </Button>
         </div>
       </form>

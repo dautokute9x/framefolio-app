@@ -102,94 +102,106 @@ export async function getPublicPortfolioAlbums(
   }));
 }
 
-export async function getDashboardAlbums(
-  ownerId: string
-): Promise<AlbumCardData[]> {
+export type DashboardAlbum = AlbumCardData & {
+  selection_count: number;
+  view_count: number;
+  submitted_count: number;
+  last_submitted_at: string | null;
+};
+
+/**
+ * Albums for the dashboard with cover, counts and submission info.
+ * Counts come from PostgREST embedded aggregates, so photos are not loaded.
+ */
+export async function getDashboardAlbums(ownerId: string): Promise<DashboardAlbum[]> {
   const supabase = await createClient();
-  const { data: albums } = await supabase
+  // albums has two foreign keys to photos (album photos and cover photo), so
+  // the embed has to name the relationship or PostgREST rejects the query.
+  const { data: albums, error } = await supabase
     .from("albums")
-    .select("*, clients(name,email)")
+    .select(
+      "*, clients(name,email), photos:photos!photos_album_id_fkey(count), selections(count), album_views(count), selection_sessions(submitted_at)"
+    )
     .eq("owner_id", ownerId)
+    .eq("photos.is_archived", false)
     .order("created_at", { ascending: false });
+  if (error) console.error("getDashboardAlbums failed", error.message);
 
-  const items = (albums ?? []) as (Album & {
+  type Row = Album & {
     clients: Pick<Client, "name" | "email"> | null;
-  })[];
-  const albumIds = items.map((item) => item.id);
+    photos: { count: number }[];
+    selections: { count: number }[];
+    album_views: { count: number }[];
+    selection_sessions: { submitted_at: string | null }[];
+  };
+  const rows = (albums ?? []) as Row[];
 
-  const { data: photos } = albumIds.length
-    ? await supabase
-        .from("photos")
-        .select("*")
-        .in("album_id", albumIds)
-        .eq("is_archived", false)
-        .order("sort_order", { ascending: true })
+  const coverIds = rows.map((row) => row.cover_photo_id).filter(Boolean) as string[];
+  const { data: coverPhotos } = coverIds.length
+    ? await supabase.from("photos").select("*").in("id", coverIds)
     : { data: [] as Photo[] };
+  const signed = await createSignedPhotoUrls((coverPhotos ?? []) as Photo[]);
+  const urlMap = new Map(signed.map((photo) => [photo.id, photo.signedUrl]));
 
-  const byAlbum = new Map<string, Photo[]>();
-  (photos ?? []).forEach((photo) => {
-    const list = byAlbum.get(photo.album_id) ?? [];
-    list.push(photo as Photo);
-    byAlbum.set(photo.album_id, list);
-  });
-
-  const covers = items
-    .map((album) => {
-      const albumPhotos = byAlbum.get(album.id) ?? [];
-      return (
-        albumPhotos.find((photo) => photo.id === album.cover_photo_id) ??
-        albumPhotos[0]
-      );
-    })
-    .filter(Boolean) as Photo[];
-
-  const signed = await createSignedPhotoUrls(covers);
-  const urlMap = new Map(signed.map((item) => [item.id, item.signedUrl]));
-
-  return items.map((album) => {
-    const albumPhotos = byAlbum.get(album.id) ?? [];
-    const cover =
-      albumPhotos.find((photo) => photo.id === album.cover_photo_id) ??
-      albumPhotos[0];
-
+  return rows.map(({ photos, selections, album_views, selection_sessions, ...album }) => {
+    const submitted = selection_sessions
+      .map((session) => session.submitted_at)
+      .filter(Boolean)
+      .sort() as string[];
     return {
       ...album,
-      photo_count: albumPhotos.length,
-      cover_photo_url: cover ? urlMap.get(cover.id) ?? null : null,
+      photo_count: photos?.[0]?.count ?? 0,
+      selection_count: selections?.[0]?.count ?? 0,
+      view_count: album_views?.[0]?.count ?? 0,
+      submitted_count: submitted.length,
+      last_submitted_at: submitted.at(-1) ?? null,
+      cover_photo_url: album.cover_photo_id ? urlMap.get(album.cover_photo_id) ?? null : null,
     };
   });
 }
 
-export async function getDashboardSummary(ownerId: string) {
+/** Client submissions across all albums, newest first (dashboard inbox). */
+export async function getInbox(ownerId: string) {
   const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("selection_sessions")
+    .select("id, album_id, selection_key, selector_name, selector_email, note, submitted_at, albums!inner(id, title, status, owner_id, selection_limit)")
+    .eq("albums.owner_id", ownerId)
+    .not("submitted_at", "is", null)
+    .order("submitted_at", { ascending: false })
+    .limit(100);
+  if (error) console.error("getInbox failed", error.message);
 
-  const [{ count: albumCount }, { count: photoCount }, { data: albums }] =
-    await Promise.all([
-      supabase
-        .from("albums")
-        .select("*", { count: "exact", head: true })
-        .eq("owner_id", ownerId),
-      supabase
-        .from("photos")
-        .select("*", { count: "exact", head: true })
-        .eq("owner_id", ownerId),
-      supabase.from("albums").select("id").eq("owner_id", ownerId),
-    ]);
-
-  const albumIds = (albums ?? []).map((item) => item.id);
-
-  const { count: selectionCount } = albumIds.length
-    ? await supabase
-        .from("selections")
-        .select("*", { count: "exact", head: true })
-        .in("album_id", albumIds)
-    : { count: 0 };
-
-  return {
-    albumCount: albumCount ?? 0,
-    photoCount: photoCount ?? 0,
-    selectionCount: selectionCount ?? 0,
+  type Row = SelectionSession & {
+    albums: Pick<Album, "id" | "title" | "status" | "selection_limit">;
   };
+  const rows = (data ?? []) as unknown as Row[];
+
+  // Number of photos picked in each submitted session.
+  const counts = await Promise.all(
+    rows.map(async (row) => {
+      const { count } = await supabase
+        .from("selections")
+        .select("id", { count: "exact", head: true })
+        .eq("album_id", row.album_id)
+        .eq("selection_key", row.selection_key);
+      return count ?? 0;
+    })
+  );
+
+  return rows.map((row, index) => ({ ...row, photo_count: counts[index] }));
+}
+
+/** Albums waiting for the photographer: the client submitted and the album is locked for editing. */
+export async function getInboxCount(ownerId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("selection_sessions")
+    .select("album_id, albums!inner(owner_id, status)")
+    .eq("albums.owner_id", ownerId)
+    .eq("albums.status", "Editing")
+    .not("submitted_at", "is", null);
+  return new Set((data ?? []).map((row) => row.album_id)).size;
 }
 
 export async function getOwnerClients(ownerId: string) {
@@ -445,4 +457,20 @@ export function buildShareLink(
   origin: string
 ) {
   return `${origin.replace(/\/+$/, "")}${buildSharePath(album)}`;
+}
+
+/**
+ * Long-lived signed URL of an album's cover preview, used as the Open Graph
+ * image when the link is pasted into Zalo / Facebook / Messenger.
+ */
+export async function getAlbumCoverUrl(album: Pick<Album, "id" | "cover_photo_id">, ttlSeconds = 60 * 60 * 24 * 7) {
+  const admin = createAdminClient();
+  let query = admin.from("photos").select("*").eq("album_id", album.id).eq("is_archived", false);
+  query = album.cover_photo_id ? query.eq("id", album.cover_photo_id) : query.order("sort_order").limit(1);
+  const { data } = await query.maybeSingle();
+  if (!data) return null;
+  const photo = data as Photo;
+  const path = photo.preview_path ?? photo.file_path;
+  const urls = await signReadUrls([{ path, storageBucket: photo.storage_bucket }], ttlSeconds);
+  return urls.get(path) ?? null;
 }

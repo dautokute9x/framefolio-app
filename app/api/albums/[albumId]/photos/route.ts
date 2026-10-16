@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { apiError } from "@/lib/api-error";
 import { z } from "zod";
 import { getCurrentProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -14,8 +15,7 @@ const postSchema = z.object({
 
 const deleteSchema = z.object({ photoId: z.string().uuid() });
 
-const unauthorized = () =>
-  NextResponse.json({ error: "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại" }, { status: 401 });
+const unauthorized = () => apiError("sessionExpired", 401);
 
 export async function POST(
   request: Request,
@@ -29,14 +29,14 @@ export async function POST(
 
   const parsed = postSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ error: "Dữ liệu ảnh không hợp lệ" }, { status: 400 });
+    return await apiError("invalidPhotoData", 400);
   }
   const body = parsed.data;
 
   // Paths must live inside this photographer's album folder.
   const prefix = `${profile.id}/${albumId}/`;
   if (!body.filePath.startsWith(prefix) || (body.previewPath && !body.previewPath.startsWith(prefix))) {
-    return NextResponse.json({ error: "Đường dẫn ảnh không hợp lệ" }, { status: 400 });
+    return await apiError("invalidPath", 400);
   }
 
   const supabase = await createClient();
@@ -50,7 +50,7 @@ export async function POST(
     .maybeSingle();
 
   if (!album) {
-    return NextResponse.json({ error: "Không tìm thấy album" }, { status: 404 });
+    return await apiError("albumNotFound", 404);
   }
 
   const { data: inserted, error } = await supabase
@@ -77,7 +77,7 @@ export async function POST(
       [body.filePath, ...(body.previewPath ? [body.previewPath] : [])],
       storageBucket
     ).catch(() => undefined);
-    return NextResponse.json({ error: error?.message ?? "Không lưu được ảnh" }, { status: 400 });
+    return await apiError("photoSaveFailed", 400);
   }
 
   if (!album.cover_photo_id) {
@@ -105,7 +105,7 @@ export async function DELETE(
 
   const parsed = deleteSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ error: "Yêu cầu không hợp lệ" }, { status: 400 });
+    return await apiError("invalidRequest", 400);
   }
 
   const supabase = await createClient();
@@ -118,7 +118,7 @@ export async function DELETE(
     .maybeSingle();
 
   if (!photo) {
-    return NextResponse.json({ error: "Không tìm thấy ảnh" }, { status: 404 });
+    return await apiError("photoNotFound", 404);
   }
 
   const { error: deleteError } = await supabase.from("photos").delete().eq("id", photo.id);

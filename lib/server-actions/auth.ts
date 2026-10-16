@@ -12,7 +12,7 @@ export async function signInAction(formData: FormData) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error || !data.user) {
-    redirect(`/login?message=${encodeURIComponent(error?.message ?? "Sign in failed")}`);
+    redirect("/login?error=invalid");
   }
 
   // Only the photographer has a profile row; anyone else is signed straight out.
@@ -24,7 +24,7 @@ export async function signInAction(formData: FormData) {
 
   if (!profile) {
     await supabase.auth.signOut();
-    redirect(`/login?message=${encodeURIComponent("This account does not have photographer access.")}`);
+    redirect("/login?error=noAccess");
   }
 
   redirect("/dashboard");
@@ -34,7 +34,7 @@ export async function signUpAction(formData: FormData) {
   // Single-photographer app: sign-up is closed unless explicitly enabled
   // (ALLOW_SIGNUP=true) while creating the owner account.
   if (!serverEnv.allowSignup) {
-    redirect(`/login?message=${encodeURIComponent("Sign-up is disabled.")}`);
+    redirect("/login?error=signupDisabled");
   }
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
@@ -52,10 +52,10 @@ export async function signUpAction(formData: FormData) {
   });
 
   if (error) {
-    redirect(`/login?message=${encodeURIComponent(error.message)}`);
+    redirect(`/login?error=signupFailed&detail=${encodeURIComponent(error.message)}`);
   }
 
-  redirect("/login?message=Account+created.+Please+sign+in.");
+  redirect("/login?notice=created");
 }
 
 export async function signOutAction() {

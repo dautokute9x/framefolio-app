@@ -1,39 +1,34 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, Check } from "lucide-react";
+import { Check, Copy } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { copyText } from "@/lib/clipboard";
 
 export function CopyShareButton({
   value,
-  label = "Copy link",
-  copiedLabel = "Copied",
+  label,
+  copiedLabel,
+  variant = "secondary",
 }: {
   value: string;
-  label?: string;
-  copiedLabel?: string;
+  label: string;
+  copiedLabel: string;
+  variant?: "secondary" | "outline";
 }) {
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
-    try {
-      await navigator.clipboard.writeText(value);
-    } catch {
-      // Clipboard API is blocked on non-HTTPS origins and some in-app browsers.
-      const area = document.createElement("textarea");
-      area.value = value;
-      document.body.appendChild(area);
-      area.select();
-      document.execCommand("copy");
-      area.remove();
-    }
+    await copyText(value);
     setCopied(true);
+    toast.success(copiedLabel);
     setTimeout(() => setCopied(false), 1600);
   }
 
   return (
-    <Button type="button" size="sm" variant="secondary" onClick={handleCopy}>
-      {copied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
+    <Button type="button" size="sm" variant={variant} onClick={handleCopy}>
+      {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
       {copied ? copiedLabel : label}
     </Button>
   );

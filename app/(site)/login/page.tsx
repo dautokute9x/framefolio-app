@@ -1,71 +1,76 @@
+import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { Lock } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { signInAction, signUpAction } from "@/lib/server-actions/auth";
+import { Label } from "@/components/ui/label";
 import { serverEnv } from "@/lib/env.server";
+import { signInAction, signUpAction } from "@/lib/server-actions/auth";
+
+const ERROR_KEYS = ["invalid", "noAccess", "signupDisabled", "signupFailed"] as const;
+const NOTICE_KEYS = ["created", "signIn"] as const;
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("login");
+  return { title: t("title"), robots: { index: false } };
+}
 
 export default async function LoginPage({
   searchParams,
 }: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const t = await getTranslations("login");
   const params = (await searchParams) ?? {};
-  const message = typeof params.message === "string" ? params.message : "";
+  const error = ERROR_KEYS.find((key) => key === params.error);
+  const notice = NOTICE_KEYS.find((key) => key === params.notice);
 
   return (
-    <div className="mx-auto grid min-h-[80vh] max-w-6xl items-center gap-8 px-4 py-10 sm:px-6 lg:grid-cols-2 lg:px-8">
-      <div className="max-w-xl">
-        <p className="text-xs uppercase tracking-[0.28em] text-muted-foreground">Secure admin area</p>
-        <h1 className="mt-4 font-display text-5xl">Sign in to manage albums, uploads, and client selections.</h1>
-        <p className="mt-4 text-muted-foreground">
-          This starter is intentionally built for a single photographer, with a clean dashboard and a simple client-facing gallery flow.
+    <div className="mx-auto flex min-h-[70vh] max-w-sm flex-col justify-center px-4 py-12">
+      <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-secondary">
+        <Lock className="h-5 w-5" />
+      </span>
+      <h1 className="mt-4 text-center font-display text-3xl">{t("title")}</h1>
+      <p className="mt-2 text-center text-sm text-muted-foreground">{t("subtitle")}</p>
+
+      {error ? (
+        <p role="alert" className="mt-6 rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {t(`errors.${error}`)}
         </p>
-      </div>
+      ) : notice ? (
+        <p role="status" className="mt-6 rounded-xl bg-secondary px-3 py-2 text-sm">
+          {t(`notices.${notice}`)}
+        </p>
+      ) : null}
 
-      <div className="grid gap-6">
-        <Card>
-          <CardContent className="space-y-5 p-8">
-            <div className="flex items-center gap-3">
-              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-secondary">
-                <Lock className="h-5 w-5" />
-              </span>
-              <div>
-                <h2 className="text-xl font-semibold">Sign in</h2>
-                <p className="text-sm text-muted-foreground">Use your photographer admin account.</p>
-              </div>
-            </div>
+      <form action={signInAction} className="mt-6 space-y-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="email">{t("email")}</Label>
+          <Input id="email" name="email" type="email" autoComplete="email" required />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="password">{t("password")}</Label>
+          <Input id="password" name="password" type="password" autoComplete="current-password" required />
+        </div>
+        <Button type="submit" className="w-full">
+          {t("submit")}
+        </Button>
+      </form>
 
-            {message ? <p className="rounded-xl bg-secondary px-3 py-2 text-sm">{message}</p> : null}
-
-            <form action={signInAction} className="space-y-4">
-              <Input name="email" type="email" placeholder="Email" required />
-              <Input name="password" type="password" placeholder="Password" required />
-              <Button type="submit" className="w-full">Sign in</Button>
-            </form>
-          </CardContent>
-        </Card>
-
-        {serverEnv.allowSignup ? (
-        <Card>
-          <CardContent className="space-y-5 p-8">
-            <div>
-              <h2 className="text-xl font-semibold">Create photographer account</h2>
-              <p className="text-sm text-muted-foreground">
-                Only the first account becomes the photographer. Turn ALLOW_SIGNUP off afterwards.
-              </p>
-            </div>
-
-            <form action={signUpAction} className="space-y-4">
-              <Input name="fullName" placeholder="Full name" />
-              <Input name="email" type="email" placeholder="Email" required />
-              <Input name="password" type="password" placeholder="Password" required />
-              <Button type="submit" variant="outline" className="w-full">Create account</Button>
-            </form>
-          </CardContent>
-        </Card>
-        ) : null}
-      </div>
+      {serverEnv.allowSignup ? (
+        <form action={signUpAction} className="mt-10 space-y-4 border-t border-border pt-8">
+          <div>
+            <h2 className="font-semibold">{t("signupTitle")}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{t("signupHint")}</p>
+          </div>
+          <Input name="fullName" placeholder={t("fullName")} aria-label={t("fullName")} />
+          <Input name="email" type="email" placeholder={t("email")} aria-label={t("email")} required />
+          <Input name="password" type="password" placeholder={t("password")} aria-label={t("password")} autoComplete="new-password" required />
+          <Button type="submit" variant="outline" className="w-full">
+            {t("signupSubmit")}
+          </Button>
+        </form>
+      ) : null}
     </div>
   );
 }

@@ -105,7 +105,7 @@ export async function createAlbumAction(formData: FormData) {
   const supabase = await createClient();
   const payload = buildAlbumPayload(formData);
   if (!payload.title) {
-    redirect(`/dashboard/albums/new?message=${encodeURIComponent("Vui lòng nhập tên album")}`);
+    redirect("/dashboard/albums/new?error=title");
   }
   const slug = await ensureUniqueSlug(payload.slugSeed);
   const clientId = await upsertClientFromForm(profile.id, formData);
@@ -126,7 +126,8 @@ export async function createAlbumAction(formData: FormData) {
   const { data, error } = await supabase.from("albums").insert(insertData).select("id").single();
 
   if (error || !data) {
-    redirect(`/dashboard?message=${encodeURIComponent(error?.message ?? "Unable to create album")}`);
+    console.error("createAlbum failed", error?.message);
+    redirect("/dashboard/albums/new?error=save");
   }
 
   revalidatePath("/dashboard");
@@ -181,7 +182,8 @@ export async function updateAlbumAction(formData: FormData) {
     .eq("owner_id", profile.id);
 
   if (error) {
-    redirect(`/dashboard/albums/${albumId}/edit?message=${encodeURIComponent(error.message)}`);
+    console.error("updateAlbum failed", error.message);
+    redirect(`/dashboard/albums/${albumId}/edit?error=save`);
   }
 
   revalidatePath("/dashboard");
@@ -223,4 +225,21 @@ export async function refreshShareLinkAction(formData: FormData) {
 
   revalidatePath("/dashboard");
   redirect("/dashboard");
+}
+
+/** Status change from the album cards (no redirect). */
+export async function updateAlbumStatus(albumId: string, status: string) {
+  const profile = await requireAdminProfile();
+  const next = parseStatus(status);
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("albums")
+    .update({
+      status: next,
+      ...(next === "Delivered" ? { delivered_at: new Date().toISOString() } : {}),
+    })
+    .eq("id", albumId)
+    .eq("owner_id", profile.id);
+  revalidatePath("/dashboard");
+  return { ok: !error };
 }

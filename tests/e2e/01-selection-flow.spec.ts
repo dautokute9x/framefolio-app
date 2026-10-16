@@ -127,17 +127,36 @@ test("public portfolio lists the public album and opens it", async ({ page }) =>
   await expect(page.locator("[data-photo-tile]").first()).toBeVisible();
 });
 
-test("dashboard 'Open gallery' links open the gallery on this site", async ({ page, context }) => {
+test("dashboard 'Open album' links open the gallery on this site", async ({ page, context }) => {
   await login(page);
-  const links = page.getByRole("link", { name: /Open gallery|Mở album/ });
-  const count = await links.count();
+  const menus = page.getByRole("button", { name: /Thao tác khác|More actions/ });
+  await expect(menus.first()).toBeVisible();
+  const count = await menus.count();
   expect(count).toBeGreaterThan(0);
+  const hrefs: string[] = [];
   for (let i = 0; i < count; i++) {
-    const href = await links.nth(i).getAttribute("href");
+    const link = page.getByRole("menuitem", { name: /Mở album|Open album/ });
+    // Retry the click in case it landed before the page finished hydrating.
+    await expect(async () => {
+      if (!(await link.isVisible())) await menus.nth(i).click();
+      await expect(link).toBeVisible({ timeout: 1_000 });
+    }).toPass();
+    hrefs.push((await link.getAttribute("href"))!);
+    await page.keyboard.press("Escape");
+  }
+  for (const href of hrefs) {
     expect(href).toMatch(/^\/gallery\//);
     const popup = await context.newPage();
-    const response = await popup.goto(href!);
+    const response = await popup.goto(href);
     expect(response?.status()).toBe(200);
     await popup.close();
   }
+});
+
+test("language switch changes the dashboard to English and back", async ({ page }) => {
+  await login(page);
+  await page.getByRole("button", { name: /^en$/i }).first().click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Albums");
+  await page.getByRole("button", { name: /^vi$/i }).first().click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Album");
 });

@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { apiError } from "@/lib/api-error";
 import { z } from "zod";
 import {
   createAlbumAccessCookieValue,
@@ -21,7 +22,7 @@ export async function POST(
   const { slug } = await params;
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ error: "Yêu cầu không hợp lệ" }, { status: 400 });
+    return await apiError("invalidRequest", 400);
   }
   const body = parsed.data;
   const admin = createAdminClient();
@@ -33,7 +34,7 @@ export async function POST(
     .maybeSingle();
 
   if (!album || !isShareTokenValid(album, body.shareToken)) {
-    return NextResponse.json({ error: "Không tìm thấy album" }, { status: 404 });
+    return await apiError("albumNotFound", 404);
   }
 
   if (!album.password_hash) {
@@ -44,7 +45,7 @@ export async function POST(
   if (!valid) {
     // Small fixed delay slows down password guessing.
     await new Promise((resolve) => setTimeout(resolve, 600));
-    return NextResponse.json({ error: "Mật khẩu chưa đúng" }, { status: 401 });
+    return await apiError("wrongPassword", 401);
   }
 
   const cookieStore = await cookies();

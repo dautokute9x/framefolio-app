@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
+import { getLocale, getTranslations } from "next-intl/server";
 import { Button } from "@/components/ui/button";
 import {
   getSelectionCookieName,
@@ -37,34 +38,35 @@ export default async function SelectedPage({
 
   const cookieStore = await cookies();
   const selectionKey = cookieStore.get(getSelectionCookieName(album.id))?.value ?? "";
-  const [selected, session] = await Promise.all([
+  const [t, locale, selected, session] = await Promise.all([
+    getTranslations("selectedPage"),
+    getLocale(),
     selectionKey ? getSelectedPhotosForSession(album.id, selectionKey) : Promise.resolve([]),
     getSelectionSession(album.id, selectionKey),
   ]);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+    <main id="main" className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Ảnh đã chọn</p>
+          <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">{t("eyebrow")}</p>
           <h1 className="mt-2 font-display text-4xl">{album.title}</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            {selected.length} ảnh
-            {album.selection_limit ? ` / tối đa ${album.selection_limit}` : ""}
+            {t("count", { count: selected.length, limit: album.selection_limit ?? 0 })} ·{" "}
             {session?.submitted_at
-              ? ` · Đã gửi cho nhiếp ảnh gia lúc ${formatDateTime(session.submitted_at)}`
-              : " · Chưa gửi cho nhiếp ảnh gia"}
+              ? t("submittedAt", { time: formatDateTime(session.submitted_at, locale) })
+              : t("notSubmitted")}
           </p>
         </div>
 
         <Button asChild variant="outline">
-          <Link href={`/gallery/${slug}${shareQuery}`}>Quay lại album</Link>
+          <Link href={`/gallery/${slug}${shareQuery}`}>{t("back")}</Link>
         </Button>
       </div>
 
       {selected.length === 0 ? (
         <p className="mt-10 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-          Bạn chưa chọn ảnh nào. Quay lại album và chạm vào biểu tượng trái tim để chọn.
+          {t("empty")}
         </p>
       ) : null}
 
@@ -73,7 +75,7 @@ export default async function SelectedPage({
           <div key={item.id} className="surface overflow-hidden">
             <div className="relative aspect-[4/5] bg-secondary">
               {item.photos.signedUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
+                 
                 <img
                   src={item.photos.signedUrl}
                   alt={item.photos.file_name}
@@ -88,6 +90,6 @@ export default async function SelectedPage({
           </div>
         ))}
       </div>
-    </div>
+    </main>
   );
 }

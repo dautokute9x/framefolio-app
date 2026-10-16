@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import { AlertCircle, CheckCircle2, Loader2, Trash2, UploadCloud } from "lucide-react";
+import { ConfirmDialog } from "@/components/ui/alert-dialog";
 import { createClient } from "@/lib/supabase/client";
 import { PHOTO_BUCKET } from "@/lib/constants";
-import { Button } from "@/components/ui/button";
 import type { PhotoWithUrl } from "@/lib/types";
 
 type Props = {
-  ownerId: string;
   albumId: string;
   initialPhotos: PhotoWithUrl[];
 };
@@ -38,7 +39,7 @@ async function makePreview(file: File) {
   context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   bitmap.close();
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.82));
-  if (!blob) throw new Error("Không tạo được ảnh xem trước");
+  if (!blob) throw new Error("preview");
   return { blob, width, height };
 }
 
@@ -51,7 +52,9 @@ type UploadTarget = {
 };
 
 export function UploadManager({ albumId, initialPhotos }: Props) {
+  const t = useTranslations("upload");
   const supabase = useMemo(() => createClient(), []);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
 
   /** Uploads one blob to Supabase Storage or to an R2 presigned URL. Returns an error message or null. */
   async function putFile(
@@ -62,12 +65,12 @@ export function UploadManager({ albumId, initialPhotos }: Props) {
     contentType: string
   ): Promise<string | null> {
     if (driver === "r2") {
-      if (!url) return "Thiếu link upload";
+      if (!url) return t("errors.noUploadUrl");
       try {
         const response = await fetch(url, { method: "PUT", body, headers: { "Content-Type": contentType } });
-        return response.ok ? null : `Upload lỗi (HTTP ${response.status})`;
+        return response.ok ? null : t("errors.http", { status: response.status });
       } catch {
-        return "Không kết nối được kho ảnh (kiểm tra CORS của bucket R2)";
+        return t("errors.storageUnreachable");
       }
     }
     const { error } = await supabase.storage
@@ -84,6 +87,13 @@ export function UploadManager({ albumId, initialPhotos }: Props) {
   const uploading = queue.some((item) => item.state === "queued" || item.state === "uploading");
   const doneCount = queue.filter((item) => item.state === "done").length;
   const errorCount = queue.filter((item) => item.state === "error").length;
+
+  // Files picked before the page finished loading never fired onChange.
+  useEffect(() => {
+    if (inputRef.current?.files?.length) void handleFiles(inputRef.current.files);
+    // Runs once after hydration only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Warn before closing the tab in the middle of an upload.
   useEffect(() => {
@@ -103,11 +113,11 @@ export function UploadManager({ albumId, initialPhotos }: Props) {
     update(item.id, { state: "uploading" });
 
     if (!ACCEPTED_TYPES.includes(file.type)) {
-      update(item.id, { state: "error", message: "Chỉ nhận JPG, PNG, WEBP (HEIC/RAW hãy xuất sang JPG trước)" });
+      update(item.id, { state: "error", message: t("errors.type") });
       return;
     }
     if (file.size > MAX_FILE_BYTES) {
-      update(item.id, { state: "error", message: "Ảnh lớn hơn 50MB" });
+      update(item.id, { state: "error", message: t("errors.size") });
       return;
     }
 
@@ -133,12 +143,12 @@ export function UploadManager({ albumId, initialPhotos }: Props) {
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        update(item.id, { state: "error", message: payload.error ?? "Không chuẩn bị được upload" });
+        update(item.id, { state: "error", message: payload.error ?? t("errors.prepare") });
         return;
       }
       target = payload as UploadTarget;
     } catch {
-      update(item.id, { state: "error", message: "Mất kết nối khi chuẩn bị upload" });
+      update(item.id, { state: "error", message: t("errors.network") });
       return;
     }
 
@@ -180,13 +190,13 @@ export function UploadManager({ albumId, initialPhotos }: Props) {
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        update(item.id, { state: "error", message: payload.error ?? "Không lưu được ảnh" });
+        update(item.id, { state: "error", message: payload.error ?? t("errors.save") });
         return;
       }
       setPhotos((current) => [...current, payload.photo]);
       update(item.id, { state: "done" });
     } catch {
-      update(item.id, { state: "error", message: "Mất kết nối khi lưu ảnh" });
+      update(item.id, { state: "error", message: t("errors.network") });
     }
   }
 
@@ -224,13 +234,13 @@ export function UploadManager({ albumId, initialPhotos }: Props) {
       }
     };
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, files.length) }, worker));
+    toast.success(t("toast.batchDone", { count: files.length }));
 
     // Allow choosing the same files again (onChange does not fire otherwise).
     if (inputRef.current) inputRef.current.value = "";
   }
 
   async function deletePhoto(photoId: string) {
-    if (!window.confirm("Xoá ảnh này khỏi album? Lựa chọn của khách trên ảnh này cũng bị xoá.")) return;
     setDeleting((current) => new Set(current).add(photoId));
     try {
       const response = await fetch(`/api/albums/${albumId}/photos`, {
@@ -240,9 +250,10 @@ export function UploadManager({ albumId, initialPhotos }: Props) {
       });
       if (response.ok) {
         setPhotos((current) => current.filter((photo) => photo.id !== photoId));
+        toast.success(t("toast.deleted"));
       } else {
         const payload = await response.json().catch(() => ({}));
-        alert(payload.error ?? "Không xoá được ảnh");
+        toast.error(payload.error ?? t("errors.delete"));
       }
     } finally {
       setDeleting((current) => {
@@ -256,8 +267,8 @@ export function UploadManager({ albumId, initialPhotos }: Props) {
   return (
     <div className="space-y-6">
       <label
-        className={`surface block cursor-pointer border-dashed p-8 text-center transition hover:border-primary/40 ${
-          dragging ? "border-primary bg-secondary" : ""
+        className={`block cursor-pointer rounded-2xl border-2 border-dashed bg-card p-8 text-center transition hover:border-primary/40 ${
+          dragging ? "border-primary bg-secondary" : "border-border"
         }`}
         onDragOver={(event) => {
           event.preventDefault();
@@ -275,32 +286,34 @@ export function UploadManager({ albumId, initialPhotos }: Props) {
           type="file"
           accept={ACCEPTED_TYPES.join(",")}
           multiple
-          className="hidden"
+          className="sr-only"
           onChange={(event) => void handleFiles(event.target.files)}
         />
         <UploadCloud className="mx-auto h-10 w-10 text-muted-foreground" />
-        <p className="mt-4 text-lg font-medium">Kéo thả hoặc bấm để chọn nhiều ảnh</p>
-        <p className="mt-2 text-sm text-muted-foreground">
-          JPG / PNG / WEBP, tối đa 50MB mỗi ảnh. Hệ thống tự tạo bản xem trước 2048px cho khách; ảnh gốc
-          không bao giờ được gửi tới khách.
-        </p>
+        <p className="mt-4 text-lg font-medium">{t("dropTitle")}</p>
+        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">{t("dropHint")}</p>
       </label>
 
       {queue.length ? (
-        <div className="surface space-y-2 p-4 text-sm" data-upload-queue>
-          <p className="font-medium">
-            {uploading ? "Đang tải lên…" : "Hoàn tất"} · {doneCount}/{queue.length} thành công
-            {errorCount ? ` · ${errorCount} lỗi` : ""}
-          </p>
-          <ul className="max-h-48 space-y-1 overflow-auto">
+        <div className="rounded-2xl border border-border bg-card p-4 text-sm" data-upload-queue>
+          <div className="flex items-center justify-between gap-3">
+            <p className="font-medium">
+              {uploading ? t("uploading") : t("finished")} · {t("progress", { done: doneCount, total: queue.length })}
+              {errorCount ? ` · ${t("errorsCount", { count: errorCount })}` : ""}
+            </p>
+          </div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-secondary">
+            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.round(((doneCount + errorCount) / queue.length) * 100)}%` }} />
+          </div>
+          <ul className="mt-3 max-h-48 space-y-1 overflow-auto">
             {queue.map((item) => (
               <li key={item.id} className="flex items-center gap-2">
                 {item.state === "done" ? (
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
                 ) : item.state === "error" ? (
-                  <AlertCircle className="h-4 w-4 text-destructive" />
+                  <AlertCircle className="h-4 w-4 shrink-0 text-destructive" />
                 ) : (
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
                 )}
                 <span className="truncate">{item.name}</span>
                 {item.message ? <span className="text-xs text-destructive">— {item.message}</span> : null}
@@ -310,43 +323,45 @@ export function UploadManager({ albumId, initialPhotos }: Props) {
         </div>
       ) : null}
 
-      <p className="text-sm text-muted-foreground">{photos.length} ảnh trong album</p>
+      <p className="text-sm text-muted-foreground">{t("count", { count: photos.length })}</p>
 
-      <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-4">
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 sm:gap-3 lg:grid-cols-6">
         {photos.map((photo) => (
-          <div key={photo.id} className="surface overflow-hidden">
-            <div className="relative aspect-[4/5] bg-secondary">
+          <figure key={photo.id} className="group relative overflow-hidden rounded-xl bg-secondary">
+            <div className="relative aspect-square">
               {photo.signedUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={photo.signedUrl}
-                  alt={photo.file_name}
-                  loading="lazy"
-                  className="absolute inset-0 h-full w-full object-cover"
-                />
+                <img src={photo.signedUrl} alt={photo.file_name} loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
               ) : (
-                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                  Không có bản xem trước
-                </div>
+                <div className="flex h-full items-center justify-center p-2 text-center text-xs text-muted-foreground">{t("noPreview")}</div>
               )}
             </div>
-
-            <div className="flex items-center justify-between gap-2 p-3">
-              <p className="min-w-0 truncate text-sm font-medium">{photo.file_name}</p>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label={`Xoá ${photo.file_name}`}
-                onClick={() => void deletePhoto(photo.id)}
-                disabled={deleting.has(photo.id)}
-              >
-                {deleting.has(photo.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-              </Button>
-            </div>
-          </div>
+            <figcaption className="truncate px-2 py-1.5 text-[11px] text-muted-foreground">{photo.file_name}</figcaption>
+            <button
+              type="button"
+              onClick={() => setConfirmId(photo.id)}
+              disabled={deleting.has(photo.id)}
+              aria-label={t("deleteLabel", { name: photo.file_name })}
+              className="absolute right-1.5 top-1.5 flex h-9 w-9 items-center justify-center rounded-full bg-black/55 text-white opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
+            >
+              {deleting.has(photo.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            </button>
+          </figure>
         ))}
       </div>
+
+      <ConfirmDialog
+        open={!!confirmId}
+        onOpenChange={(open) => !open && setConfirmId(null)}
+        title={t("confirmDelete.title")}
+        description={t("confirmDelete.body")}
+        confirmLabel={t("confirmDelete.confirm")}
+        cancelLabel={t("confirmDelete.cancel")}
+        destructive
+        onConfirm={() => {
+          if (confirmId) void deletePhoto(confirmId);
+          setConfirmId(null);
+        }}
+      />
     </div>
   );
 }
