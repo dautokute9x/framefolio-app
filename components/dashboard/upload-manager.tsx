@@ -61,12 +61,16 @@ export function UploadManager({ albumId, initialPhotos, coverPhotoId }: Props) {
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [arranging, setArranging] = useState(false);
   const [coverId, setCoverId] = useState<string | null>(coverPhotoId);
+  const [coverSaving, setCoverSaving] = useState<string | null>(null);
 
   async function chooseCover(photoId: string) {
+    if (coverSaving) return;
     const next = coverId === photoId ? null : photoId;
     const previous = coverId;
     setCoverId(next);
+    setCoverSaving(photoId);
     const result = await setCoverPhoto(albumId, next);
+    setCoverSaving(null);
     if (result.ok) toast.success(next ? t("cover.set") : t("cover.cleared"));
     else {
       setCoverId(previous);
@@ -393,7 +397,11 @@ export function UploadManager({ albumId, initialPhotos, coverPhotoId }: Props) {
                         : "bg-black/55 text-white sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
                     }`}
                   >
-                    <Star className={`h-4 w-4 ${isCover ? "fill-current" : ""}`} />
+                    {coverSaving === photo.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Star className={`h-4 w-4 ${isCover ? "fill-current" : ""}`} />
+                    )}
                   </button>
                   <button
                     type="button"

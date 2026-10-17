@@ -949,8 +949,7 @@ function SubmitDialog({
           <Button type="button" variant="outline" className="flex-1" onClick={onClose} disabled={saving}>
             {t("later")}
           </Button>
-          <Button type="submit" className="flex-1" disabled={saving || !name.trim()}>
-            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          <Button type="submit" className="flex-1" loading={saving} disabled={!name.trim()}>
             {t("confirmSubmit")}
           </Button>
         </div>

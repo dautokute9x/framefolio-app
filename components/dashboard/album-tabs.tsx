@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { buildShareLink, buildSharePath } from "@/lib/data";
 import { getSiteOrigin } from "@/lib/site-url";
 import type { Album } from "@/lib/types";
+import { LinkPending } from "@/components/link-pending";
 import { cn } from "@/lib/utils";
 
 /** Shared header for an album's pages: title, status, share actions and tabs. */
@@ -28,7 +29,9 @@ export async function AlbumTabs({
   return (
     <div className="space-y-4">
       <Link href="/dashboard" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="h-4 w-4" />
+        <LinkPending>
+          <ArrowLeft className="h-4 w-4" />
+        </LinkPending>
         {t("back")}
       </Link>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -67,7 +70,10 @@ export async function AlbumTabs({
               active === tab.key ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
             )}
           >
-            {t(`tabs.${tab.key}`)}
+            <span className="inline-flex items-center gap-1.5">
+              {t(`tabs.${tab.key}`)}
+              <LinkPending className="h-3.5 w-3.5" />
+            </span>
           </Link>
         ))}
       </nav>

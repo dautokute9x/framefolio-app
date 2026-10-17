@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { Lock } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { serverEnv } from "@/lib/env.server";
 import { signInAction, signUpAction } from "@/lib/server-actions/auth";
+import { SubmitButton } from "@/components/ui/submit-button";
 
 const ERROR_KEYS = ["invalid", "noAccess", "signupDisabled", "signupFailed"] as const;
 const NOTICE_KEYS = ["created", "signIn"] as const;
@@ -52,9 +52,9 @@ export default async function LoginPage({
           <Label htmlFor="password">{t("password")}</Label>
           <Input id="password" name="password" type="password" autoComplete="current-password" required />
         </div>
-        <Button type="submit" className="w-full">
+        <SubmitButton className="w-full">
           {t("submit")}
-        </Button>
+        </SubmitButton>
       </form>
 
       {serverEnv.allowSignup ? (
@@ -66,9 +66,9 @@ export default async function LoginPage({
           <Input name="fullName" placeholder={t("fullName")} aria-label={t("fullName")} />
           <Input name="email" type="email" placeholder={t("email")} aria-label={t("email")} required />
           <Input name="password" type="password" placeholder={t("password")} aria-label={t("password")} autoComplete="new-password" required />
-          <Button type="submit" variant="outline" className="w-full">
+          <SubmitButton variant="outline" className="w-full">
             {t("signupSubmit")}
-          </Button>
+          </SubmitButton>
         </form>
       ) : null}
     </div>

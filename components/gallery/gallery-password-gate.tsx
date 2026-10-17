@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Loader2, Lock } from "lucide-react";
+import { Lock } from "lucide-react";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ThemeToggle } from "@/components/gallery/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -83,8 +83,7 @@ export function GalleryPasswordGate({
 
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-            <Button type="submit" className="w-full" disabled={loading || !password}>
-              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            <Button type="submit" className="w-full" loading={loading} disabled={!password}>
               {t("continue")}
             </Button>
           </form>

@@ -1,6 +1,7 @@
 {
   "common": {
-    "language": "Language"
+    "language": "Language",
+    "loading": "Loading…"
   },
   "meta": {
     "description": "Photo galleries and client photo selection."

@@ -96,7 +96,8 @@ function ClientCard({ client }: { client: Row }) {
             size="icon"
             aria-label={t("delete")}
             title={client.albums.length ? t("deleteBlocked") : t("delete")}
-            disabled={pending || client.albums.length > 0}
+            disabled={client.albums.length > 0}
+            loading={pending}
             onClick={() => setConfirming(true)}
           >
             <Trash2 className="h-4 w-4" />
@@ -190,7 +191,7 @@ function ClientForm({ client, onDone }: { client?: Client; onDone: () => void })
         <Button type="button" variant="ghost" onClick={onDone} disabled={pending}>
           {t("cancel")}
         </Button>
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" loading={pending}>
           {t("save")}
         </Button>
       </div>
