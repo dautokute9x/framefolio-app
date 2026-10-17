@@ -20,17 +20,23 @@ export function useAlbumManagement(album: ManagedAlbum, { afterDelete }: { after
   const t = useTranslations("manage");
   const [pending, startTransition] = useTransition();
   const [confirm, setConfirm] = useState<"reset" | "delete" | null>(null);
+  // Which action is running, so only that button shows a spinner.
+  const [busy, setBusy] = useState<"reset" | "archive" | "delete" | null>(null);
 
   const archive = (archived: boolean) =>
     startTransition(async () => {
+      setBusy("archive");
       const result = await setAlbumArchived(album.id, archived);
+      setBusy(null);
       if (result.ok) toast.success(archived ? t("toast.archived") : t("toast.restored"));
       else toast.error(t("toast.error"));
     });
 
   const reset = () =>
     startTransition(async () => {
+      setBusy("reset");
       const result = await resetShareLink(album.id);
+      setBusy(null);
       if (!result.ok) {
         toast.error(t("toast.error"));
         return;
@@ -41,7 +47,9 @@ export function useAlbumManagement(album: ManagedAlbum, { afterDelete }: { after
 
   const remove = () =>
     startTransition(async () => {
+      setBusy("delete");
       const result = await deleteAlbum(album.id);
+      if (!result.ok) setBusy(null);
       if (!result.ok) {
         toast.error(t("toast.error"));
         return;
@@ -82,6 +90,7 @@ export function useAlbumManagement(album: ManagedAlbum, { afterDelete }: { after
 
   return {
     pending,
+    busy,
     archive,
     requestReset: () => setConfirm("reset"),
     requestDelete: () => setConfirm("delete"),
@@ -102,19 +111,25 @@ export function AlbumManagePanel({ album, archived }: { album: ManagedAlbum; arc
       </h2>
       <div className="mt-4 divide-y divide-border">
         <ManageRow title={t("reset.label")} hint={t("reset.hint")}>
-          <Button variant="outline" size="sm" disabled={manage.pending} onClick={manage.requestReset}>
+          <Button variant="outline" size="sm" disabled={manage.pending} loading={manage.busy === "reset"} onClick={manage.requestReset}>
             <Link2 className="h-4 w-4" />
             {t("reset.label")}
           </Button>
         </ManageRow>
         <ManageRow title={archived ? t("restore") : t("archive")} hint={archived ? t("restoreHint") : t("archiveHint")}>
-          <Button variant="outline" size="sm" disabled={manage.pending} onClick={() => manage.archive(!archived)}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={manage.pending}
+            loading={manage.busy === "archive"}
+            onClick={() => manage.archive(!archived)}
+          >
             {archived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
             {archived ? t("restore") : t("archive")}
           </Button>
         </ManageRow>
         <ManageRow title={t("delete.label")} hint={t("delete.hint")}>
-          <Button variant="destructive" size="sm" disabled={manage.pending} onClick={manage.requestDelete}>
+          <Button variant="destructive" size="sm" disabled={manage.pending} loading={manage.busy === "delete"} onClick={manage.requestDelete}>
             <Trash2 className="h-4 w-4" />
             {t("delete.label")}
           </Button>

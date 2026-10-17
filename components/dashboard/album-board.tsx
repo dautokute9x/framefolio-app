@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { AlbumStatusBadge, STATUS_KEY } from "@/components/album-status-badge";
 import { useAlbumManagement } from "@/components/dashboard/album-manage";
+import { LinkPending } from "@/components/link-pending";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -124,7 +125,10 @@ export function AlbumBoard({ albums }: { albums: BoardAlbum[] }) {
                   <span className="truncate">{t("todo.submitted", { title: album.title })}</span>
                 </span>
                 <Button asChild size="sm" variant="outline">
-                  <Link href={`/dashboard/albums/${album.id}/selections`}>{t("actions.viewSelections")}</Link>
+                  <Link href={`/dashboard/albums/${album.id}/selections`}>
+                    <LinkPending />
+                    {t("actions.viewSelections")}
+                  </Link>
                 </Button>
               </li>
             ))}
@@ -135,7 +139,10 @@ export function AlbumBoard({ albums }: { albums: BoardAlbum[] }) {
                   <span className="truncate">{t("todo.noPhotos", { title: album.title })}</span>
                 </span>
                 <Button asChild size="sm" variant="outline">
-                  <Link href={`/dashboard/albums/${album.id}/upload`}>{t("actions.upload")}</Link>
+                  <Link href={`/dashboard/albums/${album.id}/upload`}>
+                    <LinkPending />
+                    {t("actions.upload")}
+                  </Link>
                 </Button>
               </li>
             ))}
@@ -229,7 +236,14 @@ function AlbumCard({ album }: { album: BoardAlbum }) {
   })();
 
   return (
-    <article className={cn("flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm", archived && "opacity-80")}>
+    <article
+      aria-busy={pending || undefined}
+      className={cn(
+        "flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-opacity",
+        archived && "opacity-80",
+        pending && "opacity-60"
+      )}
+    >
       <Link href={`/dashboard/albums/${album.id}/upload`} className="relative block aspect-[3/2] bg-secondary" aria-label={album.title}>
         {album.coverUrl ? (
           <img src={album.coverUrl} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
@@ -277,7 +291,7 @@ function AlbumCard({ album }: { album: BoardAlbum }) {
           </div>
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="-mr-2 -mt-1 shrink-0" aria-label={t("actions.more")} disabled={pending}>
+              <Button variant="ghost" size="icon" className="-mr-2 -mt-1 shrink-0" aria-label={t("actions.more")} loading={pending}>
                 <MoreHorizontal className="h-5 w-5" />
               </Button>
             </DropdownMenuTrigger>
@@ -328,12 +342,14 @@ function AlbumCard({ album }: { album: BoardAlbum }) {
           {"href" in primary && primary.href ? (
             <Button asChild variant="secondary" className="w-full">
               <Link href={primary.href} target={"external" in primary && primary.external ? "_blank" : undefined}>
-                <primary.icon className="h-4 w-4" />
+                <LinkPending>
+                  <primary.icon className="h-4 w-4" />
+                </LinkPending>
                 {primary.label}
               </Link>
             </Button>
           ) : (
-            <Button variant="secondary" className="w-full" disabled={pending} onClick={() => void primary.onClick?.()}>
+            <Button variant="secondary" className="w-full" loading={pending} onClick={() => void primary.onClick?.()}>
               <primary.icon className="h-4 w-4" />
               {primary.label}
             </Button>

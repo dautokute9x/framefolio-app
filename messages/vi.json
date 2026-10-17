@@ -1,6 +1,7 @@
 {
   "common": {
-    "language": "Ngôn ngữ"
+    "language": "Ngôn ngữ",
+    "loading": "Đang tải…"
   },
   "meta": {
     "description": "Album ảnh và gửi chọn ảnh cho khách hàng."

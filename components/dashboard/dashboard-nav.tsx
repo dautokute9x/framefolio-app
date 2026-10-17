@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { FolderOpen, Globe, Inbox, Plus, Users } from "lucide-react";
+import { LinkPending } from "@/components/link-pending";
 import { cn } from "@/lib/utils";
 
 const ITEMS = [
@@ -31,7 +32,9 @@ export function DashboardTopNav({ inboxCount }: { inboxCount: number }) {
             item.match(pathname) ? "bg-secondary font-medium text-foreground" : "text-muted-foreground hover:text-foreground"
           )}
         >
-          <item.icon className="h-4 w-4" />
+          <LinkPending>
+            <item.icon className="h-4 w-4" />
+          </LinkPending>
           {t(item.key)}
           {item.key === "inbox" && inboxCount > 0 ? <CountBadge count={inboxCount} /> : null}
         </Link>
@@ -63,7 +66,9 @@ export function DashboardBottomNav({ inboxCount }: { inboxCount: number }) {
             )}
           >
             <span className="relative">
-              <item.icon className="h-5 w-5" />
+              <LinkPending className="h-5 w-5">
+                <item.icon className="h-5 w-5" />
+              </LinkPending>
               {item.key === "inbox" && inboxCount > 0 ? (
                 <span className="absolute -right-2.5 -top-1.5">
                   <CountBadge count={inboxCount} />

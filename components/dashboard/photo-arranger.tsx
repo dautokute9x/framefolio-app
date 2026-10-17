@@ -15,7 +15,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ArrowDownAZ, GripVertical, Loader2 } from "lucide-react";
+import { ArrowDownAZ, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { reorderPhotos } from "@/app/dashboard/albums/actions";
 import type { PhotoWithUrl } from "@/lib/types";
@@ -82,8 +82,7 @@ export function PhotoArranger({
           <Button type="button" variant="ghost" size="sm" onClick={() => onDone(null)} disabled={saving}>
             {t("cancel")}
           </Button>
-          <Button type="button" size="sm" onClick={save} disabled={saving}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          <Button type="button" size="sm" onClick={save} loading={saving}>
             {t("save")}
           </Button>
         </div>

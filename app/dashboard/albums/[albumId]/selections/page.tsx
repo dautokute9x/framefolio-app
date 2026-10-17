@@ -4,11 +4,11 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { Heart } from "lucide-react";
 import { AlbumTabs } from "@/components/dashboard/album-tabs";
 import { CopyShareButton } from "@/components/copy-share-button";
-import { Button } from "@/components/ui/button";
 import { requireAdminProfile } from "@/lib/auth";
 import { getAlbumSelectionReview } from "@/lib/data";
 import { setAlbumStatusAction } from "@/app/dashboard/albums/actions";
 import { formatDateTime } from "@/lib/utils";
+import { SubmitButton } from "@/components/ui/submit-button";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("album.tabs");
@@ -39,9 +39,9 @@ export default async function SelectionResultsPage({ params }: { params: Promise
         <form action={setAlbumStatusAction}>
           <input type="hidden" name="albumId" value={album.id} />
           <input type="hidden" name="status" value={locked ? "Client Selecting" : "Editing"} />
-          <Button type="submit" size="sm" variant="outline">
+          <SubmitButton size="sm" variant="outline">
             {locked ? t("reopen") : t("lock")}
-          </Button>
+          </SubmitButton>
         </form>
       </div>
 

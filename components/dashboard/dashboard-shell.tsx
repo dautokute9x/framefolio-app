@@ -4,9 +4,9 @@ import { getTranslations } from "next-intl/server";
 import { LogOut } from "lucide-react";
 import { DashboardBottomNav, DashboardTopNav } from "@/components/dashboard/dashboard-nav";
 import { LocaleSwitcher } from "@/components/locale-switcher";
-import { Button } from "@/components/ui/button";
 import { signOutAction } from "@/lib/server-actions/auth";
 import type { Profile } from "@/lib/types";
+import { SubmitButton } from "@/components/ui/submit-button";
 
 export async function DashboardShell({
   profile,
@@ -31,9 +31,9 @@ export async function DashboardShell({
           <div className="flex shrink-0 items-center gap-2">
             <LocaleSwitcher />
             <form action={signOutAction}>
-              <Button type="submit" variant="ghost" size="icon" aria-label={t("signOut")} title={t("signOut")}>
+              <SubmitButton variant="ghost" size="icon" aria-label={t("signOut")} title={t("signOut")}>
                 <LogOut className="h-4 w-4" />
-              </Button>
+              </SubmitButton>
             </form>
           </div>
         </div>

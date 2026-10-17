@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Loader2 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { LOCALE_COOKIE, LOCALES } from "@/i18n/config";
 import { cn } from "@/lib/utils";
@@ -8,7 +9,8 @@ import { cn } from "@/lib/utils";
 export function LocaleSwitcher({ className, tone = "light" }: { className?: string; tone?: "light" | "dark" }) {
   const t = useTranslations("common");
   const locale = useLocale();
-  const [pending, setPending] = useState(false);
+  const [switchingTo, setSwitchingTo] = useState<string | null>(null);
+  const pending = switchingTo !== null;
 
   return (
     <div
@@ -32,7 +34,7 @@ export function LocaleSwitcher({ className, tone = "light" }: { className?: stri
             // Save the choice and reload: a soft router.refresh() occasionally never
             // committed after a locale change, leaving the page half-translated.
             document.cookie = `${LOCALE_COOKIE}=${code}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
-            setPending(true);
+            setSwitchingTo(code);
             window.location.reload();
           }}
           className={cn(
@@ -46,7 +48,8 @@ export function LocaleSwitcher({ className, tone = "light" }: { className?: stri
                 : "text-muted-foreground hover:text-foreground"
           )}
         >
-          {code}
+          {switchingTo === code ? <Loader2 aria-hidden className="mx-auto h-3.5 w-3.5 animate-spin" /> : null}
+          <span className={switchingTo === code ? "sr-only" : undefined}>{code}</span>
         </button>
       ))}
     </div>

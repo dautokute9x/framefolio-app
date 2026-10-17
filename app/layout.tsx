@@ -2,7 +2,9 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
+import { Suspense } from "react";
 import { Toaster } from "sonner";
+import { NavigationProgress } from "@/components/navigation-progress";
 import { getBrand } from "@/lib/brand";
 import "./globals.css";
 
@@ -37,6 +39,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     <html lang={locale}>
       <body className={`${inter.variable} ${playfair.variable} font-sans`}>
         <NextIntlClientProvider>
+          <Suspense fallback={null}>
+            <NavigationProgress />
+          </Suspense>
           {children}
           <Toaster position="top-center" richColors closeButton />
         </NextIntlClientProvider>

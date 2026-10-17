@@ -1,13 +1,13 @@
 import { getTranslations } from "next-intl/server";
 import { Globe, Lock } from "lucide-react";
 import { STATUS_KEY } from "@/components/album-status-badge";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { JOB_STATUSES } from "@/lib/constants";
 import type { Album, Client } from "@/lib/types";
+import { SubmitButton } from "@/components/ui/submit-button";
 
 /** "2026-10-20T16:59:59Z" → "2026-10-20" as seen in Vietnam, for a date input. */
 function toVietnamDate(value?: string | null) {
@@ -167,9 +167,9 @@ export async function AlbumEditorForm({
 
       <div className="fixed inset-x-0 bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-30 border-t border-border bg-background/95 px-4 py-3 backdrop-blur md:static md:border-0 md:bg-transparent md:p-0">
         <div className="mx-auto flex max-w-6xl justify-end">
-          <Button type="submit" size="lg" className="w-full md:w-auto">
+          <SubmitButton size="lg" className="w-full md:w-auto">
             {album ? t("save") : t("create")}
-          </Button>
+          </SubmitButton>
         </div>
       </div>
     </form>
