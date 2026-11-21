@@ -2,8 +2,8 @@ name: Keep Supabase awake
 
 # Supabase Free projects pause after 7 days without activity.
 # This pings /api/health (which runs one small database query) every 3 days.
-# Setup: GitHub repo -> Settings -> Secrets and variables -> Actions ->
-#        New repository secret: SITE_URL = https://your-site.vercel.app
+# Uses the public production URL by default. To use another site, set SITE_URL
+# in GitHub repo -> Settings -> Secrets and variables -> Actions (secret or variable).
 on:
   schedule:
     - cron: "17 2 */3 * *" # 02:17 UTC every 3 days
@@ -19,11 +19,7 @@ jobs:
     steps:
       - name: Ping health endpoint
         env:
-          SITE_URL: ${{ secrets.SITE_URL }}
+          SITE_URL: ${{ secrets.SITE_URL || vars.SITE_URL || 'https://framefolio-app.vercel.app' }}
         run: |
-          if [ -z "$SITE_URL" ]; then
-            echo "::error::Add the SITE_URL repository secret first"
-            exit 1
-          fi
           curl --fail --silent --show-error --retry 3 --retry-delay 20 --max-time 30 \
             "${SITE_URL%/}/api/health"

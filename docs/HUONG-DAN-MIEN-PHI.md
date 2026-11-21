@@ -89,10 +89,10 @@ Nếu upload báo "Không kết nối được kho ảnh": kiểm tra lại CORS
 
 ## Bước 6 — Giữ Supabase không bị tạm dừng
 
-Repo có sẵn tác vụ `.github/workflows/keep-alive.yml`, cứ 3 ngày gọi web một lần.
+Repo có sẵn tác vụ `.github/workflows/keep-alive.yml`, cứ 3 ngày gọi `https://framefolio-app.vercel.app/api/health` một lần. Với địa chỉ này, không cần tạo secret `SITE_URL`.
 
-1. GitHub → repo `framefolio-app` → **Settings → Secrets and variables → Actions → New repository secret**.
-2. Name: `SITE_URL`, Secret: địa chỉ web của bạn (VD `https://framefolio-app-xxxx.vercel.app`) → **Add secret**.
+1. Nếu dùng địa chỉ web khác: GitHub → repo `framefolio-app` → **Settings → Secrets and variables → Actions** → tạo Secret hoặc Variable tên `SITE_URL`.
+2. Giá trị: địa chỉ web công khai của bạn (VD `https://framefolio-app-xxxx.vercel.app`). Secret được ưu tiên hơn Variable; biến môi trường trên Vercel không tự chuyển sang GitHub Actions.
 3. Thử ngay: tab **Actions → Keep Supabase awake → Run workflow**. Có dấu tích xanh là được.
 
 Lưu ý: tác vụ chỉ chạy khi file nằm trên nhánh `main`, nên phải merge Pull Request trước. Nếu repo để công khai, GitHub tự tắt tác vụ định kỳ sau 60 ngày repo không có thay đổi; khi đó vào tab Actions bật lại.
